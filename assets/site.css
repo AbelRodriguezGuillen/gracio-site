@@ -1,0 +1,119 @@
+/* Gracio website. Colors match the app (src/theme.ts). */
+/* Cormorant SC, served from this site (SIL Open Font License, see fonts/OFL.txt). */
+@font-face {
+  font-family: 'Cormorant SC';
+  src: url('/assets/fonts/cormorant-sc-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --ice: #EEF5FA;
+  --surface: #FFFFFF;
+  --ink: #2A1A2E;
+  --ink-soft: #4A3D4E;
+  --line: #DCE3EA;
+  --plum: #391021;
+  --plum-soft: #EFE4E8;
+  --teal: #3F9A96;
+  --teal-soft: #E3F1F0;
+  --serif: 'Cormorant SC', Georgia, 'Times New Roman', serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ice: #161118;
+    --surface: #221A25;
+    --ink: #F2ECF3;
+    --ink-soft: #C9BFCC;
+    --line: #3A2F3D;
+    --plum: #E7AABF;
+    --plum-soft: #3B2430;
+    --teal: #63C1BB;
+    --teal-soft: #1E3836;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ice);
+  color: var(--ink);
+  font: 17px/1.6 var(--sans);
+}
+a { color: var(--plum); font-weight: 600; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+
+/* Header */
+.top { padding: 18px 0; }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.brand img { width: 36px; height: 36px; }
+.brand span { font: 600 30px/1 var(--serif); }
+.top nav { display: flex; gap: 18px; font-size: 15px; }
+.top nav a { color: var(--ink-soft); font-weight: 600; text-decoration: none; padding: 10px 2px; }
+.top nav a:hover, .top nav a[aria-current="page"] { color: var(--plum); }
+
+/* Home */
+.hero { text-align: center; padding: 24px 0 8px; }
+.butler { width: 170px; margin: 0 auto 8px; }
+.butler svg { width: 100%; height: auto; display: block; }
+@media (prefers-reduced-motion: no-preference) {
+  .butler svg { animation: float 3.2s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-6px); } }
+}
+h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }
+.hero h1 { font-size: clamp(48px, 11vw, 76px); margin: 8px 0 10px; }
+.lead { font-size: 19px; color: var(--ink-soft); max-width: 560px; margin: 0 auto; }
+.soon {
+  display: inline-block; margin-top: 22px; padding: 10px 18px; border-radius: 999px;
+  background: var(--plum); color: #fff; font-weight: 700; font-size: 15px;
+}
+@media (prefers-color-scheme: dark) { .soon { color: #221A25; } }
+.where { color: var(--ink-soft); font-size: 15px; margin-top: 10px; }
+
+.ties { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 34px 0 6px; padding: 0; list-style: none; }
+.ties li {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 14px; font-size: 15px; font-weight: 600;
+}
+.ties b { color: var(--plum); margin-right: 6px; }
+
+.cards { display: grid; gap: 14px; margin: 34px 0; }
+@media (min-width: 680px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 18px 16px;
+}
+.card h2 { font-size: 26px; margin: 0 0 6px; }
+.card p { margin: 0; color: var(--ink-soft); font-size: 16px; }
+
+.rules {
+  background: var(--teal-soft); border-radius: 18px; padding: 20px 22px; margin: 8px 0 40px;
+}
+.rules h2 { font-size: 28px; margin: 0 0 8px; }
+.rules ul { margin: 0; padding-left: 20px; }
+
+/* Text pages */
+.doc { padding-top: 10px; padding-bottom: 40px; }
+.doc h1 { font-size: clamp(40px, 9vw, 56px); margin: 10px 0 4px; }
+.doc .date { color: var(--ink-soft); font-size: 15px; margin: 0 0 24px; }
+.doc h2 { font-size: 28px; margin: 34px 0 6px; }
+.doc h3 { font-size: 18px; margin: 20px 0 4px; }
+.doc p, .doc li { color: var(--ink); }
+.doc ul { padding-left: 22px; }
+.doc li + li { margin-top: 4px; }
+.box {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; margin: 18px 0;
+}
+.box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+
+/* Footer */
+footer { border-top: 1px solid var(--line); padding: 22px 0 34px; color: var(--ink-soft); font-size: 14px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 8px; }
+footer p { margin: 4px 0; }
