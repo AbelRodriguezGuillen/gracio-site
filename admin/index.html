@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gracio Admin</title>
+<meta name="robots" content="noindex">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --plum: #391021; --plum-soft: #EFE4E8; --teal: #3F9A96; --teal-soft: #E3F1F0;
+    --ink: #2A1A2E; --ink-soft: #4A3D4E; --muted: #7A6F7D; --line: #D9E2E8;
+    --bg: #F6F8FA; --card: #FFFFFF; --good: #2E7D4F; --bad: #B3261E; --mustard: #E8D97A;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --plum: #E7B7C8; --plum-soft: #3A2430; --teal: #6CC3BE; --teal-soft: #1E3533;
+      --ink: #F2ECF3; --ink-soft: #D6CCD8; --muted: #A59BA8; --line: #3A3340;
+      --bg: #17131A; --card: #221C26; --good: #6BC08E; --bad: #F08A82;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 860px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .logo { font-family: Georgia, serif; font-size: 20px; color: var(--plum); font-weight: 700; letter-spacing: .5px; }
+  .logo small { font: 600 11px/1 -apple-system, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-left: 6px; }
+  .spacer { flex: 1; }
+  nav { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
+  nav button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 12px; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  nav button.on { color: var(--plum); border-bottom-color: var(--plum); }
+  .badge { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--plum); color: #fff; font-size: 12px; text-align: center; margin-left: 4px; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .title { font-weight: 700; font-size: 16px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .comment { margin: 8px 0; white-space: pre-wrap; word-break: break-word; }
+  .reasons { margin: 8px 0 0; padding-left: 18px; color: var(--ink-soft); }
+  .pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--teal-soft); color: var(--teal); }
+  .pill.warn { background: var(--plum-soft); color: var(--plum); }
+  .pill.bad { background: transparent; border: 1px solid var(--bad); color: var(--bad); }
+  .stars { color: var(--plum); font-weight: 700; }
+  button.btn { font: inherit; font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  button.btn.primary { background: var(--plum); border-color: var(--plum); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.btn.primary { color: #17131A; } }
+  button.btn.danger { border-color: var(--bad); color: var(--bad); }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  select, input { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input { width: 100%; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+  .error { color: var(--bad); margin-top: 10px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .tile .v { font-size: 26px; font-weight: 700; color: var(--plum); line-height: 1.1; }
+  .tile .k { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .tile .s { font-size: 12px; color: var(--muted); }
+  h3 { margin: 4px 0 10px; font-size: 15px; }
+  .list { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .hidden { display: none !important; }
+  .photos { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .photos figure { margin: 0; width: 104px; }
+  .photos img { width: 104px; height: 104px; object-fit: cover; border-radius: 10px; display: block; background: var(--line); }
+  .photos label { display: flex; align-items: center; gap: 4px; margin: 4px 0 0; font-weight: 400; font-size: 13px; color: var(--muted); }
+  .photos input { width: auto; }
+  .narrow { max-width: 420px; margin: 40px auto; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="logo">Gracio<small>Admin</small></div>
+    <div class="spacer"></div>
+    <span id="who" class="meta"></span>
+    <button id="signOut" class="btn hidden">Sign out</button>
+  </div>
+  <nav id="tabs" class="hidden">
+    <button data-tab="reviews" class="on">Reviews<span id="reviewBadge" class="badge hidden"></span></button>
+    <button data-tab="reports">Reports<span id="reportBadge" class="badge hidden"></span></button>
+    <button data-tab="comments">Comments</button>
+    <button data-tab="accounts">Suspended</button>
+    <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
+    <button data-tab="words">Words</button>
+    <button data-tab="photos">Photos</button>
+    <button data-tab="metrics">Metrics</button>
+  </nav>
+</header>
+
+<main>
+  <!-- First-time setup: which Supabase project -->
+  <section id="setup" class="card narrow hidden">
+    <div class="title">Connect to Supabase</div>
+    <p class="meta">Find these in Supabase → Project Settings → API. Use the <b>anon / publishable</b> key, never the secret or service_role key. Saved in this browser only.</p>
+    <label for="url">Project URL</label>
+    <input id="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
+    <label for="key">Anon / publishable key</label>
+    <input id="key" placeholder="eyJ… or sb_publishable_…" autocomplete="off">
+    <div class="actions"><button id="saveSetup" class="btn primary">Continue</button></div>
+    <div id="setupError" class="error"></div>
+  </section>
+
+  <!-- Sign in -->
+  <section id="signin" class="card narrow hidden">
+    <div class="title">Sign in</div>
+    <p class="meta">Use an account that has the admin or moderator role.</p>
+    <div class="actions" id="googleRow"><button id="doGoogle" class="btn primary" style="width:100%">Continue with Google</button></div>
+    <p class="meta" id="orPassword" style="margin-top:12px">Or with email and password:</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <div class="actions">
+      <button id="doSignIn" class="btn">Sign in</button>
+      <button id="resetSetup" class="btn">Change project</button>
+    </div>
+    <div id="signinError" class="error"></div>
+  </section>
+
+  <section id="notMod" class="card narrow hidden">
+    <div class="title">Not an admin</div>
+    <p class="meta">This account doesn't have the admin or moderator role. Add it in the Supabase SQL Editor (see the top of supabase/migrations/20261028190000_admin_tools.sql), then sign in again.</p>
+  </section>
+
+  <!-- Reports -->
+  <section id="tab-reports" class="hidden">
+    <div class="toolbar">
+      <select id="reportStatus">
+        <option value="open">Open</option>
+        <option value="upheld">Upheld</option>
+        <option value="dismissed">Dismissed</option>
+      </select>
+      <button class="btn" data-refresh="reports">Refresh</button>
+    </div>
+    <div id="reportsList"></div>
+  </section>
+
+  <!-- Comments -->
+  <section id="tab-comments" class="hidden">
+    <div class="toolbar">
+      <select id="commentFilter">
+        <option value="all">All comments</option>
+        <option value="reported">Reported</option>
+        <option value="hidden">Hidden</option>
+      </select>
+      <button class="btn" data-refresh="comments">Refresh</button>
+    </div>
+    <div id="commentsList"></div>
+    <div class="actions"><button id="moreComments" class="btn hidden">Load more</button></div>
+  </section>
+
+  <!-- Suspended accounts -->
+  <section id="tab-accounts" class="hidden">
+    <div class="toolbar">
+      <span class="meta">Suspended accounts can read and block people, but can't post reviews, send reports, suggest businesses, make collections or change their profile.</span>
+      <button class="btn" data-refresh="accounts">Refresh</button>
+    </div>
+    <div id="accountsList"></div>
+  </section>
+
+  <!-- Reviews waiting for approval -->
+  <section id="tab-reviews" class="hidden">
+    <div class="toolbar">
+      <span class="meta">New reviews and updates wait here, oldest first, until you approve them. Names of people are already shown as *** (Claude Haiku finds them); flags are things to look at. The writer gets a message either way.</span>
+      <button class="btn" data-refresh="reviews">Refresh</button>
+    </div>
+    <div id="reviewsList"></div>
+  </section>
+
+  <!-- Suggested businesses -->
+  <section id="tab-suggestions" class="hidden">
+    <div class="toolbar">
+      <select id="suggestionStatus">
+        <option value="pending">Waiting</option>
+        <option value="approved">Added</option>
+        <option value="declined">Declined</option>
+      </select>
+      <button class="btn" data-refresh="suggestions">Refresh</button>
+    </div>
+    <p class="meta">To add a place you need its coordinates: open it in Google Maps, press and hold the pin (right-click on a computer) and copy the two numbers, like 40.9389, -73.9952. The person who suggested it gets a message either way.</p>
+    <div id="suggestionsList"></div>
+  </section>
+
+  <!-- Words: search synonyms and masked words -->
+  <section id="tab-words" class="hidden">
+    <div class="card">
+      <h3>Search synonyms</h3>
+      <p class="meta">When someone searches the word on the left, places matching any word on the right show up too. Parts of words work: "veterinar" finds veterinary and veterinarian.</p>
+      <div class="row" style="margin:8px 0">
+        <input id="synTerm" placeholder="Word people type, e.g. lawyer" style="flex:1;min-width:160px">
+        <input id="synAlts" placeholder="Also find, comma-separated: attorney, law firm" style="flex:2;min-width:220px">
+        <button id="synAdd" class="btn primary">Save</button>
+      </div>
+      <div id="synList"></div>
+    </div>
+    <div class="card">
+      <h3>Masked words</h3>
+      <p class="meta">These are saved as their first letter and *** in reviews, names, about lines, collection names and suggestions. The list holds slurs; curse words aren't masked (you approve every review anyway). Only whole words count, so a word inside a longer word is safe unless you tick "Also longer words". Changes apply to new posts.</p>
+      <div class="row" style="margin:8px 0">
+        <input id="wordNew" placeholder="Word, letters only" style="flex:1;min-width:160px">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400"><input id="wordPrefix" type="checkbox" style="width:auto"> Also longer words that start with it</label>
+        <button id="wordAdd" class="btn primary">Add</button>
+      </div>
+      <div id="wordList"></div>
+    </div>
+  </section>
+
+  <!-- Photos -->
+  <section id="tab-photos" class="hidden">
+    <div class="card">
+      <h3>Photos</h3>
+      <p class="meta">New photos wait in the Reviews tab with their review (up to 10 per review or update). Tick "Leave out" on any you don't want, then approve; declining a review removes all its photos.</p>
+    </div>
+    <div class="card">
+      <h3>Leftover files</h3>
+      <p class="meta">Files no photo uses any more: left out or declined photos that weren't deleted right away, deleted reviews and accounts, and uploads that didn't finish. Only files older than an hour are listed.</p>
+      <div class="row" style="margin-top:8px">
+        <span id="leftoverCount" class="meta">Loading…</span>
+        <button id="leftoverDelete" class="btn danger hidden">Delete them</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics -->
+  <section id="tab-metrics" class="hidden">
+    <div class="toolbar">
+      <select id="metricDays">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last 12 months</option>
+      </select>
+      <button class="btn" data-refresh="metrics">Refresh</button>
+    </div>
+    <div id="metricsBody"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const STORE = 'gracio-admin-config';
+  let sb = null;
+  let commentsCursor = null;
+
+  // ---------- helpers ----------
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const when = (t) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const stars = (n) => n ? `<span class="stars">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>` : '';
+  const show = (...ids) => ids.forEach((i) => $(i).classList.remove('hidden'));
+  const hide = (...ids) => ids.forEach((i) => $(i).classList.add('hidden'));
+  const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); };
+  const fmt = (n) => (n ?? 0).toLocaleString();
+  const loadConfig = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } };
+  const saveConfig = (c) => { try { localStorage.setItem(STORE, JSON.stringify(c)); } catch {} };
+  const clearConfig = () => { try { localStorage.removeItem(STORE); } catch {} };
+
+  async function rpc(name, args = {}) {
+    const { data, error } = await sb.rpc(name, args);
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  // ---------- startup ----------
+  // The project's address and publishable key are safe to have here (the server checks every
+  // admin action), so the online page needs no setup. "Change project" can still override them.
+  const DEFAULT_CONFIG = { url: 'https://afjoucvqxxtwfpbpweph.supabase.co', key: 'sb_publishable_77n-uOCZ_p2ZI6JreiJylQ_1Mk4igKn' };
+
+  function start() {
+    const cfg = loadConfig() || DEFAULT_CONFIG;
+    sb = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: true, storageKey: 'gracio-admin-auth', flowType: 'pkce' } });
+    // Google sign-in only works from the online page (it has to come back to a web address).
+    const online = location.protocol === 'https:';
+    $('googleRow').classList.toggle('hidden', !online);
+    $('orPassword').classList.toggle('hidden', !online);
+    sb.auth.getSession().then(({ data }) => data.session ? afterSignIn(data.session) : show('signin'));
+  }
+
+  $('doGoogle').onclick = async () => {
+    $('signinError').textContent = '';
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+    if (error) $('signinError').textContent = error.message;
+  };
+
+  $('saveSetup').onclick = () => {
+    const url = $('url').value.trim().replace(/\/+$/, '');
+    const key = $('key').value.trim();
+    if (!/^https:\/\/.+/.test(url) || key.length < 20) { $('setupError').textContent = 'Enter the project URL (https://…) and the anon key.'; return; }
+    if (/service_role|sb_secret_/.test(key) || /"role"\s*:\s*"service_role"/.test(atobSafe(key.split('.')[1]))) {
+      $('setupError').textContent = 'That looks like the secret key. Use the anon / publishable key instead.'; return;
+    }
+    saveConfig({ url, key });
+    hide('setup'); start();
+  };
+  function atobSafe(s) { try { return atob((s || '').replace(/-/g, '+').replace(/_/g, '/')); } catch { return ''; } }
+
+  $('resetSetup').onclick = () => { clearConfig(); hide('signin'); show('setup'); };
+
+  $('doSignIn').onclick = async () => {
+    $('signinError').textContent = '';
+    const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    if (error) { $('signinError').textContent = error.message; return; }
+    $('password').value = '';
+    afterSignIn(data.session);
+  };
+  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('doSignIn').click(); });
+
+  $('signOut').onclick = async () => {
+    await sb.auth.signOut();
+    hide('tabs', 'signOut', 'notMod', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
+    $('who').textContent = '';
+    show('signin');
+  };
+
+  async function afterSignIn(session) {
+    hide('signin');
+    $('who').textContent = session.user.email || '';
+    show('signOut');
+    let mod = false;
+    try { mod = await rpc('is_moderator'); } catch (e) { $('signinError').textContent = e.message; show('signin'); return; }
+    if (!mod) { show('notMod'); return; }
+    show('tabs');
+    openTab('reviews');
+    refreshReportBadge();
+  }
+
+  // ---------- tabs ----------
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadLeftovers, metrics: loadMetrics };
+  function openTab(name) {
+    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
+    ['reviews', 'reports', 'comments', 'accounts', 'suggestions', 'words', 'photos', 'metrics'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    loaders[name]();
+  }
+  document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
+  document.querySelectorAll('[data-refresh]').forEach((b) => b.onclick = () => loaders[b.dataset.refresh]());
+  $('reportStatus').onchange = loadReports;
+  $('suggestionStatus').onchange = loadSuggestions;
+  $('synAdd').onclick = saveSynonym;
+  $('wordAdd').onclick = addWord;
+  $('leftoverDelete').onclick = deleteLeftovers;
+  $('commentFilter').onchange = () => loadComments(true);
+  $('metricDays').onchange = loadMetrics;
+  $('moreComments').onclick = () => loadComments(false);
+
+  async function refreshReportBadge() {
+    try {
+      const m = await rpc('admin_metrics', { p_days: 1 });
+      const b = $('reportBadge');
+      b.textContent = m.open_reports;
+      b.classList.toggle('hidden', !m.open_reports);
+      const sb = $('suggestionBadge');
+      sb.textContent = m.pending_suggestions;
+      sb.classList.toggle('hidden', !m.pending_suggestions);
+      const rb = $('reviewBadge');
+      rb.textContent = m.pending_reviews;
+      rb.classList.toggle('hidden', !m.pending_reviews);
+    } catch {}
+  }
+
+  // ---------- reviews waiting for approval ----------
+  const FLAG_NAMES = {
+    threat: 'Threat', harassment: 'Harassment', hate: 'Hate', sexual: 'Sexual', spam: 'Spam or ad',
+    personal_info: 'Personal info', serious_accusation: 'Serious accusation', not_a_review: 'Not a review',
+  };
+  const RATING_NAMES = ['Rude', 'Cold', 'Fine', 'Polite', 'Gracious'];
+  const PHOTO_TYPES = { food: 'Food', drinks: 'Drinks', menu: 'Menu', products: 'Products', prices: 'Prices', result: 'Results',
+    rooms: 'Rooms', equipment: 'Equipment', inside: 'Inside', outside: 'Outside', other: 'Other' };
+
+  async function loadReviews() {
+    const list = $('reviewsList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_review_queue', { p_limit: 100 });
+      if (!rows.length) { list.innerHTML = '<div class="empty">No reviews waiting. All caught up.</div>'; return; }
+      const urls = await photoUrls(rows.flatMap((r) => (r.photos || []).map((p) => p.path)));
+      list.innerHTML = rows.map((r) => {
+        const masked = r.original_comment !== r.comment;
+        const details = Object.entries(r.details || {}).map(([k, v]) => `${esc(k)} ${esc(v)}`).join(', ');
+        return `
+        <div class="card" data-id="${esc(r.entry_id)}">
+          <div class="row">
+            <span class="title">${esc(r.place_name)}</span>
+            ${r.place_town ? `<span class="meta">${esc(r.place_town)}</span>` : ''}
+            ${r.is_update ? '<span class="pill">Update</span>' : ''}
+            ${r.verified ? '<span class="pill">Verified</span>' : ''}
+            ${(r.flags || []).map((f) => `<span class="pill warn">${esc(FLAG_NAMES[f] || f)}</span>`).join('')}
+            ${r.names_checked ? '' : '<span class="pill bad">Names not checked</span>'}
+          </div>
+          <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)} ${esc(RATING_NAMES[r.service - 1] || '')}${details ? ' · ' + details : ''}</div>
+          ${r.comment ? `<div class="comment">${esc(r.comment)}</div>` : '<div class="meta" style="margin:8px 0">No comment, just a rating.</div>'}
+          ${(r.photos || []).length ? `<div class="photos">${r.photos.map((p, i) => `
+            <figure>
+              ${urls.get(p.path) ? `<a href="${esc(urls.get(p.path))}" target="_blank" rel="noopener"><img src="${esc(urls.get(p.path))}" alt="Photo ${i + 1}"></a>` : '<div class="meta">Couldn’t load</div>'}
+              <div class="meta">${esc(PHOTO_TYPES[p.tag] || p.tag || '')}</div>
+              <label><input type="checkbox" data-photo="${esc(p.id)}"> Leave out</label>
+            </figure>`).join('')}</div>` : ''}
+          ${r.note ? `<div class="meta">Claude: ${esc(r.note)}</div>` : ''}
+          ${!r.names_checked && r.problem ? `<div class="meta">Why: ${esc(r.problem)}. Check for names yourself.</div>` : ''}
+          ${masked ? `
+          <details style="margin-top:6px">
+            <summary class="meta" style="cursor:pointer">What they typed (private${r.names?.length ? '; hidden: ' + esc(r.names.join(', ')) : ''})</summary>
+            <div class="comment">${esc(r.original_comment)}</div>
+          </details>` : ''}
+          <div class="actions">
+            <button class="btn primary" data-act="approve">Approve</button>
+            ${masked && r.names?.length ? '<button class="btn" data-act="original">Approve without hiding names</button>' : ''}
+            <button class="btn" data-act="decline">Decline</button>
+          </div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideReview(b));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decideReview(btn) {
+    const card = btn.closest('.card');
+    const act = btn.dataset.act;
+    const leaveOut = [...card.querySelectorAll('[data-photo]:checked')].map((b) => b.dataset.photo);
+    const args = { p_entry_id: card.dataset.id, p_decision: act === 'decline' ? 'decline' : 'approve', p_use_original: act === 'original', p_remove_photos: leaveOut };
+    if (act === 'original' && !confirm('Post it with the names showing? Slurs, phone numbers and links stay hidden.')) return;
+    if (act === 'decline') {
+      const reason = prompt('Decline. Optional reason, shown to the writer (e.g. "Please leave out personal details"):', '');
+      if (reason === null) return;
+      args.p_reason = reason;
+    }
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      const removed = await rpc('admin_decide_review', args);
+      if (removed && removed.length) await sb.storage.from('review-photos').remove(removed).catch(() => {}); // leftovers are cleaned up in Photos otherwise
+      toast(act === 'decline' ? 'Declined' : 'Approved and posted');
+      card.remove();
+      if (!$('reviewsList').querySelector('.card')) loadReviews();
+      refreshReportBadge();
+    } catch (e) { toast(e.message); card.querySelectorAll('button').forEach((b) => b.disabled = false); }
+  }
+
+  // ---------- reports ----------
+  async function loadReports() {
+    const list = $('reportsList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    const status = $('reportStatus').value;
+    try {
+      const rows = await rpc('admin_reports', { p_status: status, p_limit: 100 });
+      if (!rows.length) { list.innerHTML = `<div class="empty">No ${esc(status)} reports.</div>`; return; }
+      list.innerHTML = rows.map((r) => `
+        <div class="card" data-type="${esc(r.target_type)}" data-id="${esc(r.target_id)}" data-account="${esc(r.account_id ?? '')}">
+          <div class="row">
+            <span class="pill">${{ review: 'Review', place: 'Place', profile: 'Person' }[r.target_type] || esc(r.target_type)}</span>
+            <span class="pill warn">${r.report_count} report${r.report_count === 1 ? '' : 's'}</span>
+            ${r.target_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+            ${r.target_status === 'deleted' ? '<span class="pill bad">Deleted</span>' : ''}
+            ${r.account_suspended ? '<span class="pill bad">Suspended</span>' : ''}
+          </div>
+          <div class="title" style="margin-top:8px">${esc(r.title)}</div>
+          <div class="meta">${esc(r.subtitle)} ${r.service ? '· ' + stars(r.service) : ''}</div>
+          ${r.body ? `<div class="comment">“${esc(r.body)}”</div>` : ''}
+          <div class="meta">Why it was reported:</div>
+          <ul class="reasons">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+          <div class="meta" style="margin-top:6px">${status === 'open' ? 'Last reported ' + when(r.last_reported) : 'Decided ' + when(r.resolved_at)}</div>
+          ${status === 'open' && r.target_status !== 'deleted' ? `
+          <div class="actions">
+            <button class="btn primary" data-act="hide">${r.target_type === 'profile' ? 'Uphold &amp; reset profile' : 'Uphold &amp; hide'}</button>
+            <button class="btn" data-act="keep">${r.target_type === 'profile' ? 'Uphold, no change' : 'Uphold, keep visible'}</button>
+            <button class="btn" data-act="dismiss">Dismiss</button>
+          </div>` : ''}
+          ${status === 'open' && r.target_status === 'deleted' ? `<div class="actions"><button class="btn" data-act="dismiss">Dismiss (already deleted)</button></div>` : ''}
+          ${status !== 'open' && r.target_status === 'hidden' ? `<div class="actions"><button class="btn" data-act="unhide">Show it again</button></div>` : ''}
+          ${r.account_id && !r.account_suspended ? `<div class="actions"><button class="btn danger" data-suspend>Suspend ${r.target_type === 'review' ? 'the author' : 'this person'}</button></div>` : ''}
+        </div>`).join('');
+      list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideReport(b));
+      list.querySelectorAll('[data-suspend]').forEach((b) => b.onclick = () => suspend(b, loadReports));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decideReport(btn) {
+    const card = btn.closest('.card');
+    const type = card.dataset.type, id = card.dataset.id, act = btn.dataset.act;
+    const label = {
+      hide: type === 'profile' ? 'Uphold and reset their name and about line?' : 'Uphold and hide this?',
+      keep: type === 'profile' ? 'Uphold without changing their profile?' : 'Uphold but keep it visible?',
+      dismiss: 'Dismiss these reports?',
+      unhide: 'Show this again?',
+    }[act];
+    const who = {
+      hide: type === 'place' ? 'Everyone who reported it gets a message saying it was removed.'
+        : 'Everyone who reported it gets a message, and so does ' + (type === 'review' ? 'the author' : 'this person') + ', with the reason and support@gracioapp.com for appeals.',
+      keep: 'Everyone who reported it gets a message saying you took action.',
+      dismiss: 'Everyone who reported it gets a message saying it doesn\'t break the rules. The author isn\'t told.',
+      unhide: type === 'review' ? 'The author gets a message saying it\'s visible again.' : '',
+    }[act];
+    const trusted = (act === 'hide' || act === 'keep') && type === 'review' ? '\n\nThe author loses Trusted status for 90 days.' : '';
+    if (!confirm(label + (who ? '\n\n' + who : '') + trusted)) return;
+    const note = act === 'dismiss' || act === 'unhide' ? '' : (prompt('Optional note for the log:', '') || '');
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      if (act === 'unhide') {
+        await rpc(type === 'review' ? 'admin_set_review_status' : 'admin_set_place_status',
+          type === 'review' ? { p_review_id: id, p_status: 'visible' } : { p_place_id: id, p_status: 'active' });
+        toast('Visible again');
+      } else {
+        await rpc('admin_resolve_reports', { p_target_type: type, p_target_id: id, p_decision: act === 'dismiss' ? 'dismiss' : 'uphold', p_hide: act === 'hide', p_note: note });
+        toast(act === 'dismiss' ? 'Dismissed' : act === 'hide' ? 'Upheld and hidden' : 'Upheld');
+      }
+      loadReports(); refreshReportBadge();
+    } catch (e) { toast(e.message); card.querySelectorAll('button').forEach((b) => b.disabled = false); }
+  }
+
+  // ---------- comments ----------
+  async function loadComments(reset) {
+    const list = $('commentsList');
+    if (reset) { commentsCursor = null; list.innerHTML = '<div class="empty">Loading…</div>'; }
+    try {
+      const rows = await rpc('admin_comments', { p_filter: $('commentFilter').value, p_limit: 25, p_before: commentsCursor });
+      if (reset) list.innerHTML = '';
+      if (reset && !rows.length) { list.innerHTML = '<div class="empty">No comments here.</div>'; hide('moreComments'); return; }
+      list.insertAdjacentHTML('beforeend', rows.map((r) => `
+        <div class="card" data-review="${esc(r.review_id)}" data-status="${esc(r.review_status)}" data-account="${esc(r.author_id)}">
+          <div class="row">
+            <span class="title">${esc(r.place_name)}</span>
+            ${r.is_update ? '<span class="pill">Update</span>' : ''}
+            ${r.verified ? '<span class="pill">Verified</span>' : ''}
+            ${r.open_reports ? `<span class="pill warn">${r.open_reports} open report${r.open_reports === 1 ? '' : 's'}</span>` : ''}
+            ${r.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+          </div>
+          <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)}</div>
+          <div class="comment">${esc(r.comment)}</div>
+          <div class="actions">
+            ${r.review_status === 'hidden'
+              ? '<button class="btn" data-act="show">Show review</button>'
+              : '<button class="btn danger" data-act="hide">Hide review</button>'}
+            <button class="btn" data-suspend>Suspend author</button>
+          </div>
+        </div>`).join(''));
+      list.querySelectorAll('[data-act]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => toggleReview(b); });
+      list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadComments(true)); });
+      commentsCursor = rows.length ? rows[rows.length - 1].created_at : commentsCursor;
+      $('moreComments').classList.toggle('hidden', rows.length < 25);
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function toggleReview(btn) {
+    const card = btn.closest('.card');
+    const id = card.dataset.review;
+    const hiding = btn.dataset.act === 'hide';
+    if (!confirm(hiding ? 'Hide this whole review (original and updates)? It stops counting toward scores.\n\nThe author gets a message with support@gracioapp.com for appeals.'
+                        : 'Show this review again?\n\nThe author gets a message saying it\'s visible again.')) return;
+    const note = hiding ? (prompt('Optional note for the log:', '') || '') : '';
+    btn.disabled = true;
+    try {
+      await rpc('admin_set_review_status', { p_review_id: id, p_status: hiding ? 'hidden' : 'visible', p_note: note });
+      toast(hiding ? 'Review hidden' : 'Review visible');
+      loadComments(true);
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  // ---------- suspensions ----------
+  async function suspend(btn, reload) {
+    const id = btn.closest('.card').dataset.account;
+    if (!id) return;
+    const days = prompt('Suspend for how many days?\n\nLeave empty to suspend until you lift it.', '7');
+    if (days === null) return;
+    const n = days.trim() === '' ? null : Number(days);
+    if (n !== null && !(Number.isInteger(n) && n >= 1 && n <= 3650)) { toast('Enter 1 to 3650 days, or leave it empty.'); return; }
+    const hideAll = confirm('Also hide every review they\'ve written?\n\nOK = hide them all. Cancel = keep their reviews.');
+    const note = prompt('Optional note for the log:', '') || '';
+    if (!confirm(`Suspend ${n ? 'for ' + n + ' day' + (n === 1 ? '' : 's') : 'until you lift it'}${hideAll ? ' and hide their reviews' : ''}?\n\nThey get a message with the end date and support@gracioapp.com for appeals.`)) return;
+    btn.disabled = true;
+    try {
+      await rpc('admin_suspend_account', { p_user_id: id, p_days: n, p_note: note, p_hide_reviews: hideAll });
+      toast('Suspended');
+      reload();
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  async function loadAccounts() {
+    const list = $('accountsList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_suspended_accounts');
+      if (!rows.length) { list.innerHTML = '<div class="empty">No one is suspended.</div>'; return; }
+      list.innerHTML = rows.map((r) => `
+        <div class="card" data-account="${esc(r.user_id)}">
+          <div class="title">${esc(r.display_name)}</div>
+          <div class="meta">Suspended ${when(r.suspended_at)} · ${r.until ? 'until ' + when(r.until) : 'until you lift it'}</div>
+          ${r.note ? `<div class="comment">${esc(r.note)}</div>` : ''}
+          <div class="actions"><button class="btn" data-lift>Lift suspension</button></div>
+        </div>`).join('');
+      list.querySelectorAll('[data-lift]').forEach((b) => b.onclick = () => lift(b));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function lift(btn) {
+    const id = btn.closest('.card').dataset.account;
+    if (!confirm('Lift this suspension now?\n\nThey get a message saying their account is active again. Reviews you hid stay hidden.')) return;
+    btn.disabled = true;
+    try {
+      await rpc('admin_lift_suspension', { p_user_id: id });
+      toast('Suspension lifted');
+      loadAccounts();
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  // ---------- photos ----------
+  // Short-lived links to show stored photos (moderators may see all of them).
+  async function photoUrls(paths) {
+    const out = new Map();
+    if (!paths.length) return out;
+    try {
+      const { data } = await sb.storage.from('review-photos').createSignedUrls(paths, 3600);
+      (data || []).forEach((d) => { if (d.path && d.signedUrl) out.set(d.path, d.signedUrl); });
+    } catch {}
+    return out;
+  }
+
+  let leftovers = [];
+  async function loadLeftovers() {
+    $('leftoverCount').textContent = 'Loading…';
+    hide('leftoverDelete');
+    try {
+      leftovers = (await rpc('admin_photo_leftovers', { p_limit: 1000 })).map((r) => r.name);
+      $('leftoverCount').textContent = leftovers.length ? `${fmt(leftovers.length)} leftover file${leftovers.length === 1 ? '' : 's'}` : 'No leftover files.';
+      if (leftovers.length) show('leftoverDelete');
+    } catch (e) { $('leftoverCount').textContent = e.message; }
+  }
+
+  async function deleteLeftovers() {
+    if (!leftovers.length || !confirm(`Delete ${leftovers.length} leftover file(s)? This can't be undone.`)) return;
+    $('leftoverDelete').disabled = true;
+    try {
+      for (let i = 0; i < leftovers.length; i += 100) {
+        const { error } = await sb.storage.from('review-photos').remove(leftovers.slice(i, i + 100));
+        if (error) throw new Error(error.message);
+      }
+      toast('Deleted');
+    } catch (e) { toast(e.message); }
+    $('leftoverDelete').disabled = false;
+    loadLeftovers();
+  }
+
+  // ---------- suggested businesses ----------
+  async function loadSuggestions() {
+    const list = $('suggestionsList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    const status = $('suggestionStatus').value;
+    try {
+      const rows = await rpc('admin_suggestions', { p_status: status, p_limit: 100 });
+      if (!rows.length) { list.innerHTML = `<div class="empty">No ${status === 'pending' ? 'suggestions waiting' : status + ' suggestions'}.</div>`; return; }
+      list.innerHTML = rows.map((r) => {
+        const where = [r.address, r.town].filter(Boolean).join(', ');
+        const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, where].filter(Boolean).join(' '));
+        return `
+        <div class="card" data-id="${esc(r.id)}">
+          <div class="row">
+            <span class="pill">${esc(r.category_label)}</span>
+            ${r.status === 'approved' ? '<span class="pill">Added</span>' : ''}
+            ${r.status === 'declined' ? '<span class="pill bad">Declined</span>' : ''}
+          </div>
+          <div class="title" style="margin-top:8px">${esc(r.name)}</div>
+          <div class="meta">${esc(where)}${r.phone ? ' · ' + esc(r.phone) : ''}</div>
+          ${r.note ? `<div class="comment">“${esc(r.note)}”</div>` : ''}
+          <div class="meta">From ${esc(r.submitter_name)} · ${when(r.created_at)}${r.reviewed_at ? ' · decided ' + when(r.reviewed_at) : ''}</div>
+          <div class="actions">
+            <a class="btn" href="${maps}" target="_blank" rel="noopener" style="text-decoration:none">Find on Google Maps</a>
+            ${r.status === 'pending' ? `
+            <button class="btn primary" data-act="approve">Add to Gracio</button>
+            <button class="btn" data-act="decline">Decline</button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideSuggestion(b));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decideSuggestion(btn) {
+    const card = btn.closest('.card');
+    const id = card.dataset.id;
+    let args = { p_id: id, p_decision: btn.dataset.act };
+    if (btn.dataset.act === 'approve') {
+      const raw = prompt('Paste the coordinates from Google Maps (latitude, longitude):', '');
+      if (raw === null) return;
+      const m = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+      if (!m) { toast('Couldn’t read coordinates. Use the form 40.9389, -73.9952.'); return; }
+      args = { ...args, p_lat: Number(m[1]), p_lng: Number(m[2]) };
+      if (!confirm(`Add it at ${m[1]}, ${m[2]}?\n\nIt shows up for everyone, and the person who suggested it gets a message.`)) return;
+    } else {
+      const reason = prompt('Decline. Optional reason, shown to the person who suggested it (e.g. "It’s already listed"):', '');
+      if (reason === null) return;
+      args = { ...args, p_reason: reason };
+    }
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      await rpc('admin_decide_suggestion', args);
+      toast(btn.dataset.act === 'approve' ? 'Added to Gracio' : 'Declined');
+      loadSuggestions(); refreshReportBadge();
+    } catch (e) { toast(e.message); card.querySelectorAll('button').forEach((b) => b.disabled = false); }
+  }
+
+  // ---------- words: synonyms and masked words ----------
+  async function loadWords() {
+    $('synList').innerHTML = $('wordList').innerHTML = '<div class="meta">Loading…</div>';
+    try {
+      const w = await rpc('admin_word_lists');
+      $('synList').innerHTML = w.synonyms.length ? `<div class="list">${w.synonyms.map((x) => `
+        <div><b>${esc(x.term)}</b> → ${esc(x.alternatives.join(', '))}</div>
+        <div><button class="btn" data-syn="${esc(x.term)}">Remove</button></div>`).join('')}</div>` : '<div class="meta">None yet.</div>';
+      $('wordList').innerHTML = w.blocked.length ? `<div class="list">${w.blocked.map((x) => `
+        <div>${esc(x.word)}${x.whole_word_only ? '' : '<span class="meta"> and longer words</span>'}</div>
+        <div><button class="btn" data-word="${esc(x.word)}">Remove</button></div>`).join('')}</div>` : '<div class="meta">None yet.</div>';
+      $('synList').querySelectorAll('[data-syn]').forEach((b) => b.onclick = async () => {
+        if (!confirm(`Remove the synonym "${b.dataset.syn}"?`)) return;
+        try { await rpc('admin_remove_synonym', { p_term: b.dataset.syn }); loadWords(); } catch (e) { toast(e.message); }
+      });
+      $('wordList').querySelectorAll('[data-word]').forEach((b) => b.onclick = async () => {
+        if (!confirm(`Stop masking "${b.dataset.word}"? Posts already saved stay masked.`)) return;
+        try { await rpc('admin_remove_blocked_word', { p_word: b.dataset.word }); loadWords(); } catch (e) { toast(e.message); }
+      });
+    } catch (e) { $('synList').innerHTML = `<div class="error">${esc(e.message)}</div>`; $('wordList').innerHTML = ''; }
+  }
+
+  async function saveSynonym() {
+    const term = $('synTerm').value.trim();
+    const alts = $('synAlts').value.split(',').map((x) => x.trim()).filter(Boolean);
+    if (!term || !alts.length) { toast('Type a word and at least one alternative.'); return; }
+    try {
+      await rpc('admin_set_synonym', { p_term: term, p_alternatives: alts });
+      $('synTerm').value = $('synAlts').value = '';
+      toast('Saved'); loadWords();
+    } catch (e) { toast(e.message); }
+  }
+
+  async function addWord() {
+    const word = $('wordNew').value.trim().toLowerCase();
+    if (!/^[a-z]{2,30}$/.test(word)) { toast('Letters only, 2 to 30 of them.'); return; }
+    try {
+      await rpc('admin_set_blocked_word', { p_word: word, p_whole_word_only: !$('wordPrefix').checked });
+      $('wordNew').value = ''; $('wordPrefix').checked = false;
+      toast('Added'); loadWords();
+    } catch (e) { toast(e.message); }
+  }
+
+  // ---------- metrics ----------
+  async function loadMetrics() {
+    const body = $('metricsBody');
+    body.innerHTML = '<div class="empty">Loading…</div>';
+    const days = Number($('metricDays').value);
+    try {
+      const [m, daily] = await Promise.all([rpc('admin_metrics', { p_days: days }), rpc('admin_daily_activity', { p_days: days })]);
+      const repeatRate = m.reviewers_all_time ? Math.round(100 * m.repeat_reviewers / m.reviewers_all_time) : null;
+      const tile = (v, k, s = '') => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+      body.innerHTML = `
+        <div class="tiles">
+          ${tile(fmt(m.new_users), 'New users', fmt(m.total_users) + ' total')}
+          ${tile(fmt(m.new_reviews), 'New reviews', fmt(m.total_reviews) + ' total')}
+          ${tile(fmt(m.new_updates), 'Review updates')}
+          ${tile(fmt(m.active_reviewers), 'Active reviewers')}
+          ${tile(repeatRate === null ? '—' : repeatRate + '%', 'Repeat reviewers', fmt(m.repeat_reviewers) + ' of ' + fmt(m.reviewers_all_time) + ' posted 2+ times')}
+          ${tile(m.verified_share === null ? '—' : m.verified_share + '%', 'Verified at the place')}
+          ${tile(m.avg_service ?? '—', 'Avg. service rating')}
+          ${tile(fmt(m.places_reviewed), 'Places with reviews')}
+          ${tile(fmt(m.open_reports), 'Open reports')}
+          ${tile(fmt(m.hidden_reviews), 'Hidden reviews')}
+          ${tile(fmt(m.pending_reviews), 'Reviews', 'waiting for approval')}
+          ${tile(fmt(m.pending_suggestions), 'Suggested businesses', 'waiting for review')}
+        </div>
+        <div class="card chart">
+          <h3>Daily activity</h3>
+          ${chart(daily)}
+          <div class="legend"><span><i style="background:var(--plum)"></i>Reviews + updates</span><span><i style="background:var(--teal)"></i>New users</span></div>
+        </div>
+        <div class="card"><h3>Reviews by category</h3>${listRows(m.by_category, 'category')}</div>
+        <div class="card"><h3>Top towns</h3>${listRows(m.by_town, 'town')}</div>`;
+    } catch (e) { body.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  function listRows(rows, key) {
+    if (!rows.length) return '<div class="meta">Nothing in this period.</div>';
+    return `<div class="list">${rows.map((r) => `<div>${esc(r[key])}</div><div><b>${fmt(r.count)}</b></div>`).join('')}</div>`;
+  }
+
+  function chart(daily) {
+    const W = 600, H = 180, pad = 24;
+    const n = daily.length;
+    const max = Math.max(1, ...daily.map((d) => Math.max(d.new_reviews + d.new_updates, d.new_users)));
+    const step = (W - pad) / n;
+    const bw = Math.max(1, step * 0.38);
+    const y = (v) => H - pad - (v / max) * (H - pad * 1.5);
+    let bars = '';
+    daily.forEach((d, i) => {
+      const x = pad + i * step;
+      const a = d.new_reviews + d.new_updates;
+      bars += `<rect x="${x}" y="${y(a)}" width="${bw}" height="${H - pad - y(a)}" fill="var(--plum)" rx="1"><title>${esc(d.day)}: ${a} reviews + updates</title></rect>`;
+      bars += `<rect x="${x + bw}" y="${y(d.new_users)}" width="${bw}" height="${H - pad - y(d.new_users)}" fill="var(--teal)" rx="1"><title>${esc(d.day)}: ${d.new_users} new users</title></rect>`;
+    });
+    const label = (i) => { const d = new Date(daily[i].day + 'T12:00:00'); return d.toLocaleDateString([], { month: 'short', day: 'numeric' }); };
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily activity">
+      <line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="var(--line)"/>
+      <text x="0" y="${y(max) + 4}" font-size="11" fill="var(--muted)">${max}</text>
+      <text x="0" y="${H - pad + 4}" font-size="11" fill="var(--muted)">0</text>
+      ${bars}
+      <text x="${pad}" y="${H - 6}" font-size="11" fill="var(--muted)">${label(0)}</text>
+      <text x="${W}" y="${H - 6}" font-size="11" fill="var(--muted)" text-anchor="end">${label(n - 1)}</text>
+    </svg>`;
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>
