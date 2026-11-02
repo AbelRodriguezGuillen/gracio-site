@@ -71,6 +71,13 @@
   .photos label { display: flex; align-items: center; gap: 4px; margin: 4px 0 0; font-weight: 400; font-size: 13px; color: var(--muted); }
   .photos input { width: auto; }
   .narrow { max-width: 420px; margin: 40px auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .grid figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--line); }
+  .grid figcaption { padding: 8px; font-size: 13px; }
+  .grid .btn { padding: 5px 9px; font-size: 13px; }
+  .acct { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; }
+  .acct .actions { margin-top: 6px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
 </style>
@@ -88,6 +95,7 @@
     <button data-tab="reviews" class="on">Reviews<span id="reviewBadge" class="badge hidden"></span></button>
     <button data-tab="reports">Reports<span id="reportBadge" class="badge hidden"></span></button>
     <button data-tab="comments">Comments</button>
+    <button data-tab="users" class="admin-only hidden">Accounts</button>
     <button data-tab="accounts">Suspended</button>
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
@@ -158,6 +166,23 @@
     <div class="actions"><button id="moreComments" class="btn hidden">Load more</button></div>
   </section>
 
+  <!-- All accounts (admins only) -->
+  <section id="tab-users" class="hidden">
+    <div id="userStats" class="tiles"></div>
+    <div class="toolbar">
+      <input id="userSearch" placeholder="Search name or email" style="flex:1;min-width:180px;width:auto">
+      <select id="userSort">
+        <option value="joined">Newest first</option>
+        <option value="last_sign_in">Last signed in</option>
+        <option value="reviews">Most reviews</option>
+      </select>
+      <button class="btn" data-refresh="users">Refresh</button>
+    </div>
+    <p class="meta">Active = signed in during that period. Emails are private: only admins see them.</p>
+    <div id="usersList"></div>
+    <div class="actions"><button id="moreUsers" class="btn hidden">Load more</button></div>
+  </section>
+
   <!-- Suspended accounts -->
   <section id="tab-accounts" class="hidden">
     <div class="toolbar">
@@ -220,6 +245,12 @@
       <h3>Photos</h3>
       <p class="meta">New photos wait in the Reviews tab with their review (up to 10 per review or update). Tick "Leave out" on any you don't want, then approve; declining a review removes all its photos.</p>
     </div>
+    <div class="card admin-only hidden">
+      <h3>All photos</h3>
+      <p class="meta">Newest first, approved and waiting. Deleting can't be undone; the writer gets a message with your reason. To take down the whole review, use Delete review.</p>
+      <div id="photoGrid" class="grid" style="margin-top:10px"></div>
+      <div class="actions"><button id="morePhotos" class="btn hidden">Load more</button></div>
+    </div>
     <div class="card">
       <h3>Leftover files</h3>
       <p class="meta">Files no photo uses any more: left out or declined photos that weren't deleted right away, deleted reviews and accounts, and uploads that didn't finish. Only files older than an hour are listed.</p>
@@ -253,6 +284,7 @@
   const STORE = 'gracio-admin-config';
   let sb = null;
   let commentsCursor = null;
+  let isAdmin = false; // admins can also delete reviews and photos and see every account
 
   // ---------- helpers ----------
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -318,7 +350,9 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
+    hide('tabs', 'signOut', 'notMod', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
+    isAdmin = false;
+    document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
     show('signin');
   };
@@ -330,16 +364,18 @@
     let mod = false;
     try { mod = await rpc('is_moderator'); } catch (e) { $('signinError').textContent = e.message; show('signin'); return; }
     if (!mod) { show('notMod'); return; }
+    try { isAdmin = !!(await rpc('is_admin')); } catch { isAdmin = false; } // false until the Nov 2 database update is run
+    document.querySelectorAll('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
     show('tabs');
     openTab('reviews');
     refreshReportBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadLeftovers, metrics: loadMetrics };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'accounts', 'suggestions', 'words', 'photos', 'metrics'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -352,6 +388,11 @@
   $('commentFilter').onchange = () => loadComments(true);
   $('metricDays').onchange = loadMetrics;
   $('moreComments').onclick = () => loadComments(false);
+  $('moreUsers').onclick = () => loadUsers(false);
+  $('morePhotos').onclick = () => loadPhotos(false);
+  $('userSort').onchange = () => loadUsers(true);
+  let searchTimer = null;
+  $('userSearch').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadUsers(true), 350); };
 
   async function refreshReportBadge() {
     try {
@@ -540,8 +581,10 @@
               ? '<button class="btn" data-act="show">Show review</button>'
               : '<button class="btn danger" data-act="hide">Hide review</button>'}
             <button class="btn" data-suspend>Suspend author</button>
+            ${isAdmin ? '<button class="btn danger" data-delete-review>Delete review</button>' : ''}
           </div>
         </div>`).join(''));
+      list.querySelectorAll('[data-delete-review]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deleteReview(b.closest('.card').dataset.review, b, () => loadComments(true)); });
       list.querySelectorAll('[data-act]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => toggleReview(b); });
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadComments(true)); });
       commentsCursor = rows.length ? rows[rows.length - 1].created_at : commentsCursor;
@@ -562,6 +605,81 @@
       toast(hiding ? 'Review hidden' : 'Review visible');
       loadComments(true);
     } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  // ---------- deleting (admins) ----------
+  async function removeFiles(paths) {
+    if (!paths || !paths.length) return;
+    const { error } = await sb.storage.from('review-photos').remove(paths).catch((e) => ({ error: e }));
+    if (error) toast('Deleted. Some files are left over; clean them up under Photos.');
+  }
+
+  async function deleteReview(reviewId, btn, reload) {
+    if (!confirm('Delete this whole review (original, updates and photos)?\n\nThis can\'t be undone. It stops counting toward scores right away. The author can\'t review this place again until their 30-day wait is over.')) return;
+    const reason = prompt('Reason, shown to the author (e.g. "Not a real visit"). Leave empty for "it broke our rules":', '');
+    if (reason === null) return;
+    btn.disabled = true;
+    try {
+      const paths = await rpc('admin_delete_review', { p_review_id: reviewId, p_reason: reason });
+      await removeFiles(paths);
+      toast('Review deleted');
+      reload();
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  async function deletePhoto(photoId, btn, reload) {
+    if (!confirm('Delete this photo? This can\'t be undone.')) return;
+    const reason = prompt('Reason, shown to the author (e.g. "Shows someone\'s face"). Leave empty for "it broke our rules":', '');
+    if (reason === null) return;
+    btn.disabled = true;
+    try {
+      const path = await rpc('admin_delete_photo', { p_photo_id: photoId, p_reason: reason });
+      await removeFiles(path ? [path] : []);
+      toast('Photo deleted');
+      reload();
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  // ---------- all accounts (admins) ----------
+  let usersOffset = 0;
+  const ago = (t) => {
+    if (!t) return 'never';
+    const d = Math.floor((Date.now() - new Date(t)) / 86400000);
+    return d < 1 ? 'today' : d === 1 ? 'yesterday' : d < 60 ? d + ' days ago' : new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  async function loadUsers(reset) {
+    const list = $('usersList');
+    if (reset) {
+      usersOffset = 0;
+      list.innerHTML = '<div class="empty">Loading…</div>';
+      rpc('admin_account_stats').then((st) => {
+        const tile = (v, k, s = '') => `<div class="tile"><div class="v">${fmt(v)}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+        $('userStats').innerHTML = tile(st.total, 'Accounts') + tile(st.active_7d, 'Active', 'last 7 days') + tile(st.active_30d, 'Active', 'last 30 days')
+          + tile(st.new_7d, 'New', 'last 7 days') + tile(st.new_30d, 'New', 'last 30 days') + tile(st.with_reviews, 'Have posted a review') + tile(st.suspended, 'Suspended');
+      }).catch((e) => { $('userStats').innerHTML = `<div class="card error">${esc(e.message)}</div>`; });
+    }
+    try {
+      const rows = await rpc('admin_accounts', { p_search: $('userSearch').value, p_sort: $('userSort').value, p_limit: 50, p_offset: usersOffset });
+      if (reset) list.innerHTML = rows.length ? `<p class="meta">${fmt(rows[0].total)} account${rows[0].total === 1 ? '' : 's'}</p>` : '<div class="empty">No accounts found.</div>';
+      list.insertAdjacentHTML('beforeend', rows.map((r) => `
+        <div class="card acct" data-account="${esc(r.user_id)}">
+          <div>
+            <div class="row">
+              <span class="title">${esc(r.display_name)}</span>
+              ${r.role !== 'member' ? `<span class="pill">${esc(r.role === 'admin' ? 'Admin' : 'Moderator')}</span>` : ''}
+              ${r.suspended ? `<span class="pill bad">Suspended${r.suspended_until ? ' until ' + esc(new Date(r.suspended_until).toLocaleDateString()) : ''}</span>` : ''}
+              ${r.open_reports ? `<span class="pill warn">${r.open_reports} open report${r.open_reports === 1 ? '' : 's'}</span>` : ''}
+            </div>
+            <div class="meta">${esc(r.email || 'no email')}${r.sign_in ? ' · ' + esc(r.sign_in) : ''}</div>
+            <div class="meta">Joined ${ago(r.joined)} · last signed in ${ago(r.last_sign_in)} · ${fmt(r.reviews)} review${r.reviews === 1 ? '' : 's'} · ${fmt(r.photos)} photo${r.photos === 1 ? '' : 's'}</div>
+          </div>
+          <div class="actions">${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
+        </div>`).join(''));
+      list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadUsers(true)); });
+      usersOffset += rows.length;
+      $('moreUsers').classList.toggle('hidden', rows.length < 50);
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
   // ---------- suspensions ----------
@@ -621,6 +739,39 @@
       (data || []).forEach((d) => { if (d.path && d.signedUrl) out.set(d.path, d.signedUrl); });
     } catch {}
     return out;
+  }
+
+  function loadPhotosTab() {
+    loadLeftovers();
+    if (isAdmin) loadPhotos(true);
+  }
+
+  let photosOffset = 0;
+  async function loadPhotos(reset) {
+    const grid = $('photoGrid');
+    if (reset) { photosOffset = 0; grid.innerHTML = '<div class="meta">Loading…</div>'; }
+    try {
+      const rows = await rpc('admin_photos', { p_limit: 60, p_offset: photosOffset });
+      const urls = await photoUrls(rows.map((r) => r.path));
+      if (reset) grid.innerHTML = rows.length ? '' : '<div class="meta">No photos yet.</div>';
+      grid.insertAdjacentHTML('beforeend', rows.map((r) => `
+        <figure data-photo-id="${esc(r.photo_id)}" data-review="${esc(r.review_id)}">
+          ${urls.get(r.path) ? `<a href="${esc(urls.get(r.path))}" target="_blank" rel="noopener"><img src="${esc(urls.get(r.path))}" alt="${esc(PHOTO_TYPES[r.tag] || 'Photo')}" loading="lazy"></a>` : '<div class="meta" style="padding:8px">Couldn’t load</div>'}
+          <figcaption>
+            <div><b>${esc(r.place_name)}</b></div>
+            <div class="meta">${esc(PHOTO_TYPES[r.tag] || r.tag)} · ${esc(r.author_name)} · ${ago(r.created_at)}</div>
+            ${r.status === 'pending' ? '<span class="pill warn">Waiting</span> ' : ''}${r.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+            <div class="actions" style="margin-top:6px">
+              <button class="btn danger" data-del-photo>Delete photo</button>
+              <button class="btn" data-del-review>Delete review</button>
+            </div>
+          </figcaption>
+        </figure>`).join(''));
+      grid.querySelectorAll('[data-del-photo]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deletePhoto(b.closest('figure').dataset.photoId, b, () => loadPhotos(true)); });
+      grid.querySelectorAll('[data-del-review]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deleteReview(b.closest('figure').dataset.review, b, () => loadPhotos(true)); });
+      photosOffset += rows.length;
+      $('morePhotos').classList.toggle('hidden', rows.length < 60);
+    } catch (e) { grid.innerHTML = `<div class="error">${esc(e.message)}</div>`; }
   }
 
   let leftovers = [];
@@ -755,12 +906,17 @@
     body.innerHTML = '<div class="empty">Loading…</div>';
     const days = Number($('metricDays').value);
     try {
-      const [m, daily] = await Promise.all([rpc('admin_metrics', { p_days: days }), rpc('admin_daily_activity', { p_days: days })]);
+      const [m, daily, acct] = await Promise.all([
+        rpc('admin_metrics', { p_days: days }),
+        rpc('admin_daily_activity', { p_days: days }),
+        isAdmin ? rpc('admin_account_stats').catch(() => null) : null,
+      ]);
       const repeatRate = m.reviewers_all_time ? Math.round(100 * m.repeat_reviewers / m.reviewers_all_time) : null;
       const tile = (v, k, s = '') => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
       body.innerHTML = `
         <div class="tiles">
           ${tile(fmt(m.new_users), 'New users', fmt(m.total_users) + ' total')}
+          ${acct ? tile(fmt(acct.active_7d), 'Active accounts', 'signed in, last 7 days') + tile(fmt(acct.active_30d), 'Active accounts', 'signed in, last 30 days') : ''}
           ${tile(fmt(m.new_reviews), 'New reviews', fmt(m.total_reviews) + ' total')}
           ${tile(fmt(m.new_updates), 'Review updates')}
           ${tile(fmt(m.active_reviewers), 'Active reviewers')}
