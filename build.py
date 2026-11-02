@@ -36,7 +36,8 @@ def head(title, desc, path):
 
 
 def top(path):
-    links = ''.join(f'<a href="{h}"{" aria-current=\"page\"" if h == path else ""}>{label}</a>' for h, label in NAV)
+    current = ' aria-current="page"'  # kept outside the f-string so older Pythons (before 3.12) can run this
+    links = ''.join(f'<a href="{h}"{current if h == path else ""}>{label}</a>' for h, label in NAV)
     return f'''<header class="top"><div class="wrap">
   <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
   <nav aria-label="Main">{links}</nav>
