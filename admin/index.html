@@ -76,6 +76,10 @@
   .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--line); }
   .grid figcaption { padding: 8px; font-size: 13px; }
   .grid .btn { padding: 5px 9px; font-size: 13px; }
+  .grid button.open { all: unset; display: block; width: 100%; cursor: pointer; }
+  .grid button.open:focus-visible { outline: 2px solid var(--plum); outline-offset: -2px; }
+  .cover { position: relative; }
+  .cover .count { position: absolute; right: 6px; bottom: 6px; background: var(--card); color: var(--ink); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
   .acct { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; }
   .acct .actions { margin-top: 6px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
@@ -246,9 +250,10 @@
       <p class="meta">New photos wait in the Reviews tab with their review (up to 10 per review or update). Tick "Leave out" on any you don't want, then approve; declining a review removes all its photos.</p>
     </div>
     <div class="card admin-only hidden">
-      <h3>All photos</h3>
-      <p class="meta">Newest first, approved and waiting. Deleting can't be undone; the writer gets a message with your reason. To take down the whole review, use Delete review.</p>
+      <h3>Photos by review</h3>
+      <p class="meta">One card per review, newest first (approved and waiting). Click a card to see its photos. Deleting can't be undone; the writer gets a message with your reason.</p>
       <div id="photoGrid" class="grid" style="margin-top:10px"></div>
+      <div id="photoDetail" class="hidden" style="margin-top:10px"></div>
       <div class="actions"><button id="morePhotos" class="btn hidden">Load more</button></div>
     </div>
     <div class="card">
@@ -746,32 +751,93 @@
     if (isAdmin) loadPhotos(true);
   }
 
+  // Photos come in pages of 60 and are grouped by review on this page (a review's photos
+  // can arrive across two pages; "Load more" adds them to its card).
   let photosOffset = 0;
+  let photoRows = [];
+  let photoLinks = new Map();
+  let openReview = null;
+
+  function photoGroups() {
+    const groups = new Map();
+    for (const r of photoRows) {
+      let g = groups.get(r.review_id);
+      if (!g) groups.set(r.review_id, (g = { review_id: r.review_id, place_name: r.place_name, author_name: r.author_name, review_status: r.review_status, newest: r.created_at, photos: [] }));
+      g.photos.push(r);
+    }
+    return [...groups.values()];
+  }
+
   async function loadPhotos(reset) {
     const grid = $('photoGrid');
-    if (reset) { photosOffset = 0; grid.innerHTML = '<div class="meta">Loading…</div>'; }
+    if (reset) { photosOffset = 0; photoRows = []; grid.innerHTML = '<div class="meta">Loading…</div>'; }
     try {
       const rows = await rpc('admin_photos', { p_limit: 60, p_offset: photosOffset });
       const urls = await photoUrls(rows.map((r) => r.path));
-      if (reset) grid.innerHTML = rows.length ? '' : '<div class="meta">No photos yet.</div>';
-      grid.insertAdjacentHTML('beforeend', rows.map((r) => `
-        <figure data-photo-id="${esc(r.photo_id)}" data-review="${esc(r.review_id)}">
-          ${urls.get(r.path) ? `<a href="${esc(urls.get(r.path))}" target="_blank" rel="noopener"><img src="${esc(urls.get(r.path))}" alt="${esc(PHOTO_TYPES[r.tag] || 'Photo')}" loading="lazy"></a>` : '<div class="meta" style="padding:8px">Couldn’t load</div>'}
-          <figcaption>
-            <div><b>${esc(r.place_name)}</b></div>
-            <div class="meta">${esc(PHOTO_TYPES[r.tag] || r.tag)} · ${esc(r.author_name)} · ${ago(r.created_at)}</div>
-            ${r.status === 'pending' ? '<span class="pill warn">Waiting</span> ' : ''}${r.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
-            <div class="actions" style="margin-top:6px">
-              <button class="btn danger" data-del-photo>Delete photo</button>
-              <button class="btn" data-del-review>Delete review</button>
-            </div>
-          </figcaption>
-        </figure>`).join(''));
-      grid.querySelectorAll('[data-del-photo]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deletePhoto(b.closest('figure').dataset.photoId, b, () => loadPhotos(true)); });
-      grid.querySelectorAll('[data-del-review]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deleteReview(b.closest('figure').dataset.review, b, () => loadPhotos(true)); });
+      urls.forEach((v, k) => photoLinks.set(k, v));
+      photoRows = photoRows.concat(rows);
       photosOffset += rows.length;
-      $('morePhotos').classList.toggle('hidden', rows.length < 60);
+      $('morePhotos').classList.toggle('hidden', rows.length < 60 || !!openReview);
+      if (openReview && !photoRows.some((r) => r.review_id === openReview)) openReview = null; // it was deleted
+      openReview ? showReviewPhotos(openReview) : showPhotoGroups();
     } catch (e) { grid.innerHTML = `<div class="error">${esc(e.message)}</div>`; }
+  }
+
+  function showPhotoGroups() {
+    openReview = null;
+    hide('photoDetail');
+    show('photoGrid');
+    const grid = $('photoGrid');
+    const groups = photoGroups();
+    if (!groups.length) { grid.innerHTML = '<div class="meta">No photos yet.</div>'; return; }
+    grid.innerHTML = groups.map((g) => {
+      const cover = photoLinks.get(g.photos[0].path);
+      const waiting = g.photos.filter((p) => p.status === 'pending').length;
+      return `
+        <figure>
+          <button class="open" data-open="${esc(g.review_id)}" aria-label="${esc(g.place_name)} by ${esc(g.author_name)}, ${g.photos.length} photo${g.photos.length === 1 ? '' : 's'}. Open">
+            <div class="cover">
+              ${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : '<div class="meta" style="padding:8px;aspect-ratio:1">Couldn’t load</div>'}
+              <span class="count">${g.photos.length} photo${g.photos.length === 1 ? '' : 's'}</span>
+            </div>
+            <figcaption>
+              <div><b>${esc(g.place_name)}</b></div>
+              <div class="meta">${esc(g.author_name)} · ${ago(g.newest)}</div>
+              ${waiting ? `<span class="pill warn">${waiting} waiting</span> ` : ''}${g.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+            </figcaption>
+          </button>
+        </figure>`;
+    }).join('');
+    grid.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => showReviewPhotos(b.dataset.open));
+  }
+
+  function showReviewPhotos(reviewId) {
+    const g = photoGroups().find((x) => x.review_id === reviewId);
+    if (!g) return showPhotoGroups();
+    openReview = reviewId;
+    hide('photoGrid', 'morePhotos');
+    const box = $('photoDetail');
+    show('photoDetail');
+    box.innerHTML = `
+      <div class="toolbar">
+        <button class="btn" data-back>← All reviews</button>
+        <span><b>${esc(g.place_name)}</b> <span class="meta">by ${esc(g.author_name)} · ${g.photos.length} photo${g.photos.length === 1 ? '' : 's'}</span></span>
+        ${g.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+        <span class="spacer"></span>
+        <button class="btn danger" data-del-review>Delete review</button>
+      </div>
+      <div class="grid">${g.photos.map((r, i) => `
+        <figure data-photo-id="${esc(r.photo_id)}">
+          ${photoLinks.get(r.path) ? `<a href="${esc(photoLinks.get(r.path))}" target="_blank" rel="noopener"><img src="${esc(photoLinks.get(r.path))}" alt="${esc(PHOTO_TYPES[r.tag] || 'Photo')} ${i + 1}" loading="lazy"></a>` : '<div class="meta" style="padding:8px">Couldn’t load</div>'}
+          <figcaption>
+            <div class="meta">${esc(PHOTO_TYPES[r.tag] || r.tag)} · ${ago(r.created_at)}</div>
+            ${r.status === 'pending' ? '<span class="pill warn">Waiting</span>' : ''}
+            <div class="actions" style="margin-top:6px"><button class="btn danger" data-del-photo>Delete photo</button></div>
+          </figcaption>
+        </figure>`).join('')}</div>`;
+    box.querySelector('[data-back]').onclick = () => { showPhotoGroups(); $('morePhotos').classList.toggle('hidden', photosOffset % 60 !== 0 || photosOffset === 0); };
+    box.querySelector('[data-del-review]').onclick = (e) => deleteReview(reviewId, e.currentTarget, () => { openReview = null; loadPhotos(true); });
+    box.querySelectorAll('[data-del-photo]').forEach((b) => b.onclick = () => deletePhoto(b.closest('figure').dataset.photoId, b, () => loadPhotos(true)));
   }
 
   let leftovers = [];
