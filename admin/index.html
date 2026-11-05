@@ -215,7 +215,7 @@
       </select>
       <button class="btn" data-refresh="suggestions">Refresh</button>
     </div>
-    <p class="meta">To add a place you need its coordinates: open it in Google Maps, press and hold the pin (right-click on a computer) and copy the two numbers, like 40.9389, -73.9952. The person who suggested it gets a message either way.</p>
+    <p class="meta">Addresses picked from the app's address search come with coordinates: check the pin, then add it. An address only shows where the place is, not that the business is real, so you still decide that. For addresses typed by hand (and older suggestions) you need the coordinates: open Google Maps, press and hold the pin (right-click on a computer) and copy the two numbers, like 40.9389, -73.9952. The person who suggested it gets a message either way.</p>
     <div id="suggestionsList"></div>
   </section>
 
@@ -866,6 +866,12 @@
   }
 
   // ---------- suggested businesses ----------
+  // +12015550123 -> (201) 555-0123; anything else is shown as saved (older suggestions, international).
+  function fmtPhone(p) {
+    const m = /^\+1([2-9]\d\d)([2-9]\d\d)(\d{4})$/.exec(p || '');
+    return m ? `(${m[1]}) ${m[2]}-${m[3]}` : p;
+  }
+
   async function loadSuggestions() {
     const list = $('suggestionsList');
     list.innerHTML = '<div class="empty">Loading…</div>';
@@ -874,23 +880,32 @@
       const rows = await rpc('admin_suggestions', { p_status: status, p_limit: 100 });
       if (!rows.length) { list.innerHTML = `<div class="empty">No ${status === 'pending' ? 'suggestions waiting' : status + ' suggestions'}.</div>`; return; }
       list.innerHTML = rows.map((r) => {
-        const where = [r.address, r.town].filter(Boolean).join(', ');
-        const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, where].filter(Boolean).join(' '));
+        const place = [r.town, [r.state, r.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+        const where = [r.address, place].filter(Boolean).join(', ');
+        const geo = r.location_source === 'geocoded' && r.lat != null && r.lng != null;
+        const maps = geo
+          ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(r.lat + ',' + r.lng)
+          : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([r.name, where].filter(Boolean).join(' '));
+        const pending = r.status === 'pending';
+        const approx = geo && r.location_precision === 'approximate';
         return `
         <div class="card" data-id="${esc(r.id)}">
           <div class="row">
             <span class="pill">${esc(r.category_label)}</span>
             ${r.status === 'approved' ? '<span class="pill">Added</span>' : ''}
             ${r.status === 'declined' ? '<span class="pill bad">Declined</span>' : ''}
+            ${geo ? `<span class="pill${approx ? ' bad' : ''}">${approx ? 'Approximate location' : 'From address search'}</span>` : '<span class="pill">Typed by hand</span>'}
           </div>
           <div class="title" style="margin-top:8px">${esc(r.name)}</div>
-          <div class="meta">${esc(where)}${r.phone ? ' · ' + esc(r.phone) : ''}</div>
+          <div class="meta">${esc(where)}${r.phone ? ' · ' + esc(fmtPhone(r.phone)) : ''}</div>
+          ${geo ? `<div class="meta">Coordinates sent by the app from its address search (Gracio hasn't verified them, so check the pin): ${esc(Number(r.lat).toFixed(5))}, ${esc(Number(r.lng).toFixed(5))}${approx ? ' · only street or area level' : ''}</div>` : (pending ? '<div class="meta">No coordinates. Find it on Google Maps and paste them when you add it.</div>' : '')}
           ${r.note ? `<div class="comment">“${esc(r.note)}”</div>` : ''}
           <div class="meta">From ${esc(r.submitter_name)} · ${when(r.created_at)}${r.reviewed_at ? ' · decided ' + when(r.reviewed_at) : ''}</div>
           <div class="actions">
-            <a class="btn" href="${maps}" target="_blank" rel="noopener" style="text-decoration:none">Find on Google Maps</a>
-            ${r.status === 'pending' ? `
-            <button class="btn primary" data-act="approve">Add to Gracio</button>
+            <a class="btn" href="${maps}" target="_blank" rel="noopener" style="text-decoration:none">${geo ? 'Check pin on Google Maps' : 'Find on Google Maps'}</a>
+            ${pending ? `
+            <button class="btn primary" data-act="approve"${geo ? ` data-lat="${esc(r.lat)}" data-lng="${esc(r.lng)}" data-approx="${approx ? '1' : ''}"` : ''}>Add to Gracio</button>
+            ${geo ? '<button class="btn" data-act="approve" data-other="1">Add with other coordinates</button>' : ''}
             <button class="btn" data-act="decline">Decline</button>` : ''}
           </div>
         </div>`;
@@ -903,7 +918,12 @@
     const card = btn.closest('.card');
     const id = card.dataset.id;
     let args = { p_id: id, p_decision: btn.dataset.act };
-    if (btn.dataset.act === 'approve') {
+    if (btn.dataset.act === 'approve' && btn.dataset.lat && !btn.dataset.other) {
+      const lat = Number(btn.dataset.lat), lng = Number(btn.dataset.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) { toast('Those coordinates look wrong. Use “Add with other coordinates”.'); return; }
+      args = { ...args, p_lat: lat, p_lng: lng };
+      if (!confirm(`Add it at ${lat.toFixed(5)}, ${lng.toFixed(5)} (sent by the app from the address the person picked; check the pin on the map first)?${btn.dataset.approx ? '\n\nThis location is only approximate (street or area level). Check the pin first.' : ''}\n\nIt shows up for everyone, and the person who suggested it gets a message.`)) return;
+    } else if (btn.dataset.act === 'approve') {
       const raw = prompt('Paste the coordinates from Google Maps (latitude, longitude):', '');
       if (raw === null) return;
       const m = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
