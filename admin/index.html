@@ -440,13 +440,13 @@
           <div class="row">
             <span class="title">${esc(r.place_name)}</span>
             ${r.place_town ? `<span class="meta">${esc(r.place_town)}</span>` : ''}
-            ${r.pending_business ? `<span class="pill warn">${r.business_status === 'declined' ? 'Business declined' : 'Pending business'}</span>` : ''}
+            ${r.pending_business ? `<span class="pill warn">${r.business_status === 'declined' ? 'Business declined' : 'Awaiting Business Approval'}</span>` : ''}
             ${r.is_update ? '<span class="pill">Update</span>' : ''}
             ${r.verified ? '<span class="pill">Verified</span>' : ''}
             ${(r.flags || []).map((f) => `<span class="pill warn">${esc(FLAG_NAMES[f] || f)}</span>`).join('')}
             ${r.names_checked ? '' : '<span class="pill bad">Names not checked</span>'}
           </div>
-          ${r.pending_business ? '<div class="meta">This business is waiting for approval. Approving the review doesn\'t publish it: it goes up once the business is added.</div>' : ''}
+          ${r.pending_business ? `<div class="meta">Business: ${r.business_status === 'declined' ? 'declined' : 'pending approval'} · Review: waiting for moderation. Approving the review doesn't publish it; it goes up only once the business is added.</div>` : ''}
           <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)} ${esc(RATING_NAMES[r.service - 1] || '')}${details ? ' · ' + details : ''}</div>
           ${r.comment ? `<div class="comment">${esc(r.comment)}</div>` : '<div class="meta" style="margin:8px 0">No comment, just a rating.</div>'}
           ${(r.photos || []).length ? `<div class="photos">${r.photos.map((p, i) => `
@@ -910,7 +910,9 @@
           ${geo ? `<div class="meta">Coordinates sent by the app from its address search (Gracio hasn't verified them, so check the pin): ${esc(Number(r.lat).toFixed(5))}, ${esc(Number(r.lng).toFixed(5))}${approx ? ' · only street or area level' : ''}</div>` : (pending ? '<div class="meta">No coordinates. Find it on Google Maps and paste them when you add it.</div>' : '')}
           ${r.note ? `<div class="comment">“${esc(r.note)}”</div>` : ''}
           <div class="meta">From ${esc(r.submitter_name)} · ${when(r.created_at)}${r.reviewed_at ? ' · decided ' + when(r.reviewed_at) : ''}</div>
-          ${r.review_count ? `<div class="meta">${r.review_count} ${r.review_count === 1 ? 'review' : 'reviews'}${r.reviews_waiting ? ` · ${r.reviews_waiting} waiting in Reviews` : ''} · <a href="#" data-reviews="${esc(r.id)}">Show reviews</a></div><div class="sreviews" id="sr-${esc(r.id)}"></div>` : ''}
+          ${pending ? '<div class="meta"><b>Pending business approval</b></div>' : ''}
+          ${r.review_count ? `<div class="meta">${r.review_count} associated ${r.review_count === 1 ? 'review' : 'reviews'}${pending ? ' awaiting publication' : ''}${r.reviews_waiting ? ` (${r.reviews_waiting} still waiting for moderation in Reviews)` : ''} · <a href="#" data-reviews="${esc(r.id)}">Show reviews</a></div><div class="sreviews" id="sr-${esc(r.id)}"></div>` : (pending ? '<div class="meta">No reviews yet.</div>' : '')}
+          ${pending ? `<div class="meta"><a href="#" data-dupes="${esc(r.id)}">Check for possible duplicates</a></div><div id="sd-${esc(r.id)}"></div>` : ''}
           <div class="actions">
             <a class="btn" href="${maps}" target="_blank" rel="noopener" style="text-decoration:none">${geo ? 'Check pin on Google Maps' : 'Find on Google Maps'}</a>
             ${pending ? `
@@ -923,7 +925,21 @@
       }).join('');
       list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => (b.dataset.act === 'merge' ? mergeSuggestion(b) : decideSuggestion(b)));
       list.querySelectorAll('[data-reviews]').forEach((a) => a.onclick = (ev) => { ev.preventDefault(); showSuggestionReviews(a.dataset.reviews); });
+      list.querySelectorAll('[data-dupes]').forEach((a) => a.onclick = (ev) => { ev.preventDefault(); showSuggestionDupes(a.dataset.dupes); });
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function showSuggestionDupes(id) {
+    const box = $('sd-' + id);
+    if (!box) return;
+    box.innerHTML = '<div class="meta">Checking…</div>';
+    try {
+      const rows = await rpc('admin_suggestion_duplicates', { p_id: id });
+      box.innerHTML = rows.length
+        ? rows.map((d) => `<div class="comment">${d.clear ? '<b>Same business</b> · ' : 'Possible match · '}${d.source === 'place' ? 'On Gracio' : 'Also suggested'}: ${esc(d.name)} · ${esc(d.category_label || '')} · ${esc([d.address, d.town].filter(Boolean).join(', '))}${d.miles != null ? ' · ' + (d.miles < 0.1 ? 'same spot' : d.miles.toFixed(2) + ' mi away') : ''}</div>`).join('')
+          + '<div class="meta">If it\'s the same business already on Gracio, use Merge. Branches of a chain at different addresses are separate businesses.</div>'
+        : '<div class="meta">No similar businesses found nearby.</div>';
+    } catch (e) { box.innerHTML = `<div class="meta">${esc(e.message)}</div>`; }
   }
 
   async function showSuggestionReviews(id) {
@@ -1051,16 +1067,17 @@
         <div class="tiles">
           ${tile(fmt(m.new_users), 'New users', fmt(m.total_users) + ' total')}
           ${acct ? tile(fmt(acct.active_7d), 'Active accounts', 'signed in, last 7 days') + tile(fmt(acct.active_30d), 'Active accounts', 'signed in, last 30 days') : ''}
-          ${tile(fmt(m.new_reviews), 'New reviews', fmt(m.total_reviews) + ' total')}
+          ${tile(fmt(m.new_reviews), 'New reviews', 'published · ' + fmt(m.total_reviews) + ' published total')}
           ${tile(fmt(m.new_updates), 'Review updates')}
           ${tile(fmt(m.active_reviewers), 'Active reviewers')}
           ${tile(repeatRate === null ? '—' : repeatRate + '%', 'Repeat reviewers', fmt(m.repeat_reviewers) + ' of ' + fmt(m.reviewers_all_time) + ' posted 2+ times')}
           ${tile(m.verified_share === null ? '—' : m.verified_share + '%', 'Verified at the place')}
-          ${tile(m.avg_service ?? '—', 'Avg. service rating')}
-          ${tile(fmt(m.places_reviewed), 'Places with reviews')}
+          ${tile(m.avg_service ?? '—', 'Avg. service rating', 'published reviews')}
+          ${tile(fmt(m.places_reviewed), 'Places with reviews', 'published')}
           ${tile(fmt(m.open_reports), 'Open reports')}
           ${tile(fmt(m.hidden_reviews), 'Hidden reviews')}
-          ${tile(fmt(m.pending_reviews), 'Reviews', 'waiting for approval')}
+          ${tile(fmt(m.pending_reviews), 'Reviews', 'waiting for a moderator')}
+          ${tile(fmt(m.reviews_awaiting_business ?? 0), 'Reviews approved', 'waiting for their business to be added')}
           ${tile(fmt(m.pending_suggestions), 'Suggested businesses', 'waiting for review')}
         </div>
         <div class="card chart">
