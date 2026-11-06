@@ -212,10 +212,12 @@
         <option value="pending">Waiting</option>
         <option value="approved">Added</option>
         <option value="declined">Declined</option>
+        <option value="merged">Merged</option>
       </select>
       <button class="btn" data-refresh="suggestions">Refresh</button>
     </div>
-    <p class="meta">Addresses picked from the app's address search come with coordinates: check the pin, then add it. An address only shows where the place is, not that the business is real, so you still decide that. For addresses typed by hand (and older suggestions) you need the coordinates: open Google Maps, press and hold the pin (right-click on a computer) and copy the two numbers, like 40.9389, -73.9952. The person who suggested it gets a message either way.</p>
+    <p class="meta">Addresses picked from the app's address search come with coordinates: check the pin, then add it. An address only shows where the place is, not that the business is real, so you still decide that. For addresses typed by hand (and older suggestions) you need the coordinates: open Google Maps, press and hold the pin (right-click on a computer) and copy the two numbers, like 40.9389, -73.9952. The person who suggested it gets a message either way.<br>
+    Reviews of a suggested business are moderated in Reviews as usual and go up only once the business is added. Adding a business doesn't approve its reviews. If it's already on Gracio, use Merge: its reviews move there.</p>
     <div id="suggestionsList"></div>
   </section>
 
@@ -438,11 +440,13 @@
           <div class="row">
             <span class="title">${esc(r.place_name)}</span>
             ${r.place_town ? `<span class="meta">${esc(r.place_town)}</span>` : ''}
+            ${r.pending_business ? `<span class="pill warn">${r.business_status === 'declined' ? 'Business declined' : 'Pending business'}</span>` : ''}
             ${r.is_update ? '<span class="pill">Update</span>' : ''}
             ${r.verified ? '<span class="pill">Verified</span>' : ''}
             ${(r.flags || []).map((f) => `<span class="pill warn">${esc(FLAG_NAMES[f] || f)}</span>`).join('')}
             ${r.names_checked ? '' : '<span class="pill bad">Names not checked</span>'}
           </div>
+          ${r.pending_business ? '<div class="meta">This business is waiting for approval. Approving the review doesn\'t publish it: it goes up once the business is added.</div>' : ''}
           <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)} ${esc(RATING_NAMES[r.service - 1] || '')}${details ? ' · ' + details : ''}</div>
           ${r.comment ? `<div class="comment">${esc(r.comment)}</div>` : '<div class="meta" style="margin:8px 0">No comment, just a rating.</div>'}
           ${(r.photos || []).length ? `<div class="photos">${r.photos.map((p, i) => `
@@ -894,6 +898,8 @@
             <span class="pill">${esc(r.category_label)}</span>
             ${r.status === 'approved' ? '<span class="pill">Added</span>' : ''}
             ${r.status === 'declined' ? '<span class="pill bad">Declined</span>' : ''}
+            ${r.status === 'merged' ? '<span class="pill">Merged</span>' : ''}
+            ${r.status === 'pending' ? '<span class="pill warn">Not verified yet</span>' : ''}
             ${geo ? `<span class="pill${approx ? ' bad' : ''}">${approx ? 'Approximate location' : 'From address search'}</span>` : '<span class="pill">Typed by hand</span>'}
           </div>
           <div class="title" style="margin-top:8px">${esc(r.name)}</div>
@@ -904,17 +910,56 @@
           ${geo ? `<div class="meta">Coordinates sent by the app from its address search (Gracio hasn't verified them, so check the pin): ${esc(Number(r.lat).toFixed(5))}, ${esc(Number(r.lng).toFixed(5))}${approx ? ' · only street or area level' : ''}</div>` : (pending ? '<div class="meta">No coordinates. Find it on Google Maps and paste them when you add it.</div>' : '')}
           ${r.note ? `<div class="comment">“${esc(r.note)}”</div>` : ''}
           <div class="meta">From ${esc(r.submitter_name)} · ${when(r.created_at)}${r.reviewed_at ? ' · decided ' + when(r.reviewed_at) : ''}</div>
+          ${r.review_count ? `<div class="meta">${r.review_count} ${r.review_count === 1 ? 'review' : 'reviews'}${r.reviews_waiting ? ` · ${r.reviews_waiting} waiting in Reviews` : ''} · <a href="#" data-reviews="${esc(r.id)}">Show reviews</a></div><div class="sreviews" id="sr-${esc(r.id)}"></div>` : ''}
           <div class="actions">
             <a class="btn" href="${maps}" target="_blank" rel="noopener" style="text-decoration:none">${geo ? 'Check pin on Google Maps' : 'Find on Google Maps'}</a>
             ${pending ? `
             <button class="btn primary" data-act="approve"${geo ? ` data-lat="${esc(r.lat)}" data-lng="${esc(r.lng)}" data-approx="${approx ? '1' : ''}"` : ''}>Add to Gracio</button>
             ${geo ? '<button class="btn" data-act="approve" data-other="1">Add with other coordinates</button>' : ''}
+            <button class="btn" data-act="merge">Merge into a business on Gracio</button>
             <button class="btn" data-act="decline">Decline</button>` : ''}
           </div>
         </div>`;
       }).join('');
-      list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideSuggestion(b));
+      list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => (b.dataset.act === 'merge' ? mergeSuggestion(b) : decideSuggestion(b)));
+      list.querySelectorAll('[data-reviews]').forEach((a) => a.onclick = (ev) => { ev.preventDefault(); showSuggestionReviews(a.dataset.reviews); });
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function showSuggestionReviews(id) {
+    const box = $('sr-' + id);
+    if (!box) return;
+    box.innerHTML = '<div class="meta">Loading…</div>';
+    try {
+      const rows = await rpc('admin_suggestion_reviews', { p_id: id });
+      const label = { pending: 'Waiting in Reviews', approved: 'Approved', declined: 'Declined' };
+      box.innerHTML = rows.length ? rows.map((x) => `<div class="comment">${stars(x.service)} ${esc(RATING_NAMES[x.service - 1] || '')} · ${esc(x.author_name)} · ${when(x.created_at)} · <b>${esc(label[x.entry_status] || x.entry_status)}</b>${x.published ? ' · public' : ' · not public'}${x.comment ? '<br>“' + esc(x.comment) + '”' : ''}</div>`).join('') : '<div class="meta">No reviews.</div>';
+    } catch (e) { box.innerHTML = `<div class="meta">${esc(e.message)}</div>`; }
+  }
+
+  // Merge a suggestion into a business already on Gracio: search by name, pick one by number.
+  async function mergeSuggestion(btn) {
+    const card = btn.closest('.card');
+    const name = card.querySelector('.title')?.textContent || '';
+    let term = prompt('Merge into which business on Gracio? Search by name:', name);
+    if (term === null || !term.trim()) return;
+    let hits;
+    try {
+      hits = await rpc('suggest_places', { p_query: term.trim(), p_limit: 8 });
+    } catch (e) { toast(e.message); return; }
+    if (!hits.length) { toast('No business on Gracio matches that. Try another name.'); return; }
+    const list = hits.map((h, i) => `${i + 1}. ${h.name} · ${[h.address, h.town].filter(Boolean).join(', ')}${h.branches > 1 ? ' (' + h.branches + ' locations, nearest shown)' : ''}`).join('\n');
+    const pick = prompt(`Type the number of the business:\n\n${list}`, '1');
+    if (pick === null) return;
+    const chosen = hits[Number(pick) - 1];
+    if (!chosen) { toast('That number isn’t in the list.'); return; }
+    if (!confirm(`Merge this suggestion into ${chosen.name}${chosen.town ? ', ' + chosen.town : ''}?\n\nIts reviews move there (approved ones go up, waiting ones stay in Reviews), and the person who suggested it gets a message.`)) return;
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      await rpc('admin_merge_suggestion', { p_id: card.dataset.id, p_place_id: chosen.place_id });
+      toast('Merged into ' + chosen.name);
+      loadSuggestions(); refreshReportBadge();
+    } catch (e) { toast(e.message); card.querySelectorAll('button').forEach((b) => b.disabled = false); }
   }
 
   async function decideSuggestion(btn) {
