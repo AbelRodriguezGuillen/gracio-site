@@ -13,7 +13,7 @@ BUTLER = (ROOT / 'assets' / 'butler.svg').read_text()
 NAV = [('/support.html', 'Support'), ('/privacy.html', 'Privacy'), ('/terms.html', 'Terms')]
 
 
-def head(title, desc, path):
+def head(title, desc, path, robots=None):
     return f'''<!doctype html>
 <html lang="en">
 <head>
@@ -21,7 +21,7 @@ def head(title, desc, path):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
 <meta name="description" content="{desc}">
-<link rel="canonical" href="{SITE}{path}">
+{f'<meta name="robots" content="{robots}">' + chr(10) if robots else ''}<link rel="canonical" href="{SITE}{path}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
@@ -58,7 +58,8 @@ for src in sorted((ROOT / 'src').glob('*.html')):
     text = src.read_text()
     title = re.search(r'<!-- title: (.*?) -->', text).group(1)
     desc = re.search(r'<!-- description: (.*?) -->', text).group(1)
-    body = re.sub(r'<!-- (title|description): .*? -->\n?', '', text).replace('{{butler}}', BUTLER)
+    robots = re.search(r'<!-- robots: (.*?) -->', text)  # e.g. noindex for shared-collection pages
+    body = re.sub(r'<!-- (title|description|robots): .*? -->\n?', '', text).replace('{{butler}}', BUTLER)
     path = '/' if src.name == 'index.html' else f'/{src.name}'
-    (ROOT / src.name).write_text(head(title, desc, path) + top(path) + body + FOOT)
+    (ROOT / src.name).write_text(head(title, desc, path, robots and robots.group(1)) + top(path) + body + FOOT)
     print('built', src.name)

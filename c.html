@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A shared collection · Gracio</title>
+<meta name="description" content="A collection of places shared from Gracio.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://gracioapp.com/c.html">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="A shared collection · Gracio">
+<meta property="og:description" content="A collection of places shared from Gracio.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gracioapp.com/c.html">
+<meta name="theme-color" content="#EEF5FA">
+<link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
+  <nav aria-label="Main"><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></nav>
+</div></header>
+<main class="wrap doc shared">
+<h1 id="name">A shared collection</h1>
+<p class="date" id="meta" aria-live="polite">Opening the collection…</p>
+
+<ul class="places" id="places" hidden></ul>
+
+<div class="box" id="about">
+  <p>Shared from <strong>Gracio</strong>, the app that rates places on how they treat people. Coming soon to the App Store in Bergen County and Manhattan.</p>
+  <p id="open" hidden>Have Gracio? <a id="openLink" href="#">Open this collection in the app</a>.</p>
+</div>
+</main>
+<script>
+// Shows one public Gracio collection: its name and businesses, nothing about who made it. The id is after
+// "#", so it never reaches this website's server. Read through shared_collection() with the public key
+// (the same one the app and admin page use); private, deleted or unknown collections return nothing.
+(function () {
+  var URL_ = 'https://afjoucvqxxtwfpbpweph.supabase.co';
+  var KEY = 'sb_publishable_77n-uOCZ_p2ZI6JreiJylQ_1Mk4igKn';
+  var LABELS = { restaurant: 'Restaurant', cafe: 'Café & bakery', bar: 'Bar', fastfood: 'Fast food', grocery: 'Grocery', retail: 'Shop',
+    salon: 'Salon & barber', spa: 'Nails & spa', gym: 'Gym', medical: 'Doctor & dentist', pharmacy: 'Pharmacy', auto: 'Auto repair',
+    home: 'Home services', hotel: 'Hotel', bank: 'Bank', pet: 'Pet care', cleaners: 'Dry cleaner', pro: 'Professional service',
+    learning: 'Classes & child care', misc: 'Other' };
+  var $ = function (id) { return document.getElementById(id); };
+  var id = decodeURIComponent(location.hash.slice(1));
+  var gone = function () {
+    $('name').textContent = 'Not available';
+    $('meta').textContent = 'This collection isn’t available. It may have been made private or deleted.';
+  };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return gone();
+  fetch(URL_ + '/rest/v1/rpc/shared_collection', {
+    method: 'POST',
+    headers: { apikey: KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_id: id })
+  })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (c) {
+      if (!c || typeof c.name !== 'string') return gone();
+      var places = Array.isArray(c.places) ? c.places : [];
+      document.title = c.name + ' · Gracio';
+      $('name').textContent = c.name;
+      $('meta').textContent = 'A shared collection · ' + places.length + (places.length === 1 ? ' place' : ' places');
+      var list = $('places');
+      places.forEach(function (p) {
+        var li = document.createElement('li');
+        var b = document.createElement('strong');
+        b.textContent = p.name;
+        var s = document.createElement('span');
+        s.textContent = [LABELS[p.category] || '', p.town || ''].filter(Boolean).join(' · ');
+        li.appendChild(b); li.appendChild(s);
+        list.appendChild(li);
+      });
+      list.hidden = places.length === 0;
+      $('openLink').href = 'gracio://shared/' + id;
+      $('open').hidden = false;
+    })
+    .catch(function () {
+      $('meta').textContent = 'Couldn’t open this collection. Check your connection and reload the page.';
+    });
+})();
+</script>
+<footer><div class="wrap">
+  <nav aria-label="Footer"><a href="/support.html">Support</a><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="https://www.instagram.com/gracioapp">Instagram</a><a href="https://www.tiktok.com/@gracioapp">TikTok</a></nav>
+  <p>© 2026 Gracio. An independent app made in Bergen County, New Jersey.</p>
+  <p>Business listings from the <a href="https://overturemaps.org">Overture Maps Foundation</a>.</p>
+</div></footer>
+</body>
+</html>
