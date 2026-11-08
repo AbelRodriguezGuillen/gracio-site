@@ -687,12 +687,28 @@
             <div class="meta">${esc(r.email || 'no email')}${r.sign_in ? ' · ' + esc(r.sign_in) : ''}</div>
             <div class="meta">Joined ${ago(r.joined)} · last signed in ${ago(r.last_sign_in)} · ${fmt(r.reviews)} review${r.reviews === 1 ? '' : 's'} · ${fmt(r.photos)} photo${r.photos === 1 ? '' : 's'}</div>
           </div>
-          <div class="actions">${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
+          <div class="actions"><button class="btn" data-names>Name history</button>${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
         </div>`).join(''));
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadUsers(true)); });
+      list.querySelectorAll('[data-names]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => nameHistory(b); });
       usersOffset += rows.length;
       $('moreUsers').classList.toggle('hidden', rows.length < 50);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // ---------- name changes ----------
+  // A person may change their public name once every 7 days; every change is kept here (moderators only).
+  async function nameHistory(btn) {
+    const card = btn.closest('.card');
+    const id = card.dataset.account;
+    btn.disabled = true;
+    try {
+      const rows = await rpc('admin_name_history', { p_user_id: id });
+      alert(rows.length
+        ? 'Name changes (newest first):\n\n' + rows.map((r) => `${when(r.changed_at)}: ${r.old_name} → ${r.new_name}${r.source === 'moderator' ? ' (by a moderator)' : ''}`).join('\n')
+        : 'No name changes recorded. (Changes before November 12, 2026 aren\'t kept.)');
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
   }
 
   // ---------- suspensions ----------
