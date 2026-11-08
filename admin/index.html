@@ -503,10 +503,12 @@
     try {
       const rows = await rpc('admin_reports', { p_status: status, p_limit: 100 });
       if (!rows.length) { list.innerHTML = `<div class="empty">No ${esc(status)} reports.</div>`; return; }
+      // Photo reports show the photo itself (short-lived links; moderators may see every photo).
+      const reportPhotos = await photoUrls(rows.filter((r) => r.photo_path).map((r) => r.photo_path));
       list.innerHTML = rows.map((r) => `
         <div class="card" data-type="${esc(r.target_type)}" data-id="${esc(r.target_id)}" data-account="${esc(r.account_id ?? '')}">
           <div class="row">
-            <span class="pill">${{ review: 'Review', place: 'Place', profile: 'Person' }[r.target_type] || esc(r.target_type)}</span>
+            <span class="pill">${{ review: 'Review', place: 'Place', profile: 'Person', photo: 'Photo' }[r.target_type] || esc(r.target_type)}</span>
             <span class="pill warn">${r.report_count} report${r.report_count === 1 ? '' : 's'}</span>
             ${r.target_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
             ${r.target_status === 'deleted' ? '<span class="pill bad">Deleted</span>' : ''}
@@ -515,18 +517,19 @@
           <div class="title" style="margin-top:8px">${esc(r.title)}</div>
           <div class="meta">${esc(r.subtitle)} ${r.service ? '· ' + stars(r.service) : ''}</div>
           ${r.body ? `<div class="comment">“${esc(r.body)}”</div>` : ''}
+          ${r.photo_path && reportPhotos.get(r.photo_path) ? `<div style="margin:8px 0"><a href="${esc(reportPhotos.get(r.photo_path))}" target="_blank" rel="noopener"><img src="${esc(reportPhotos.get(r.photo_path))}" alt="Reported photo" style="max-width:100%;max-height:320px;border-radius:10px"></a></div>` : ''}
           <div class="meta">Why it was reported:</div>
           <ul class="reasons">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
           <div class="meta" style="margin-top:6px">${status === 'open' ? 'Last reported ' + when(r.last_reported) : 'Decided ' + when(r.resolved_at)}</div>
           ${status === 'open' && r.target_status !== 'deleted' ? `
           <div class="actions">
-            <button class="btn primary" data-act="hide">${r.target_type === 'profile' ? 'Uphold &amp; reset profile' : 'Uphold &amp; hide'}</button>
+            <button class="btn primary" data-act="hide">${r.target_type === 'profile' ? 'Uphold &amp; reset profile' : r.target_type === 'photo' ? 'Uphold &amp; hide photo' : 'Uphold &amp; hide'}</button>
             <button class="btn" data-act="keep">${r.target_type === 'profile' ? 'Uphold, no change' : 'Uphold, keep visible'}</button>
             <button class="btn" data-act="dismiss">Dismiss</button>
           </div>` : ''}
           ${status === 'open' && r.target_status === 'deleted' ? `<div class="actions"><button class="btn" data-act="dismiss">Dismiss (already deleted)</button></div>` : ''}
           ${status !== 'open' && r.target_status === 'hidden' ? `<div class="actions"><button class="btn" data-act="unhide">Show it again</button></div>` : ''}
-          ${r.account_id && !r.account_suspended ? `<div class="actions"><button class="btn danger" data-suspend>Suspend ${r.target_type === 'review' ? 'the author' : 'this person'}</button></div>` : ''}
+          ${r.account_id && !r.account_suspended ? `<div class="actions"><button class="btn danger" data-suspend>Suspend ${r.target_type === 'review' || r.target_type === 'photo' ? 'the author' : 'this person'}</button></div>` : ''}
         </div>`).join('');
       list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideReport(b));
       list.querySelectorAll('[data-suspend]').forEach((b) => b.onclick = () => suspend(b, loadReports));
@@ -537,17 +540,17 @@
     const card = btn.closest('.card');
     const type = card.dataset.type, id = card.dataset.id, act = btn.dataset.act;
     const label = {
-      hide: type === 'profile' ? 'Uphold and reset their name and about line?' : 'Uphold and hide this?',
+      hide: type === 'profile' ? 'Uphold and reset their name and about line?' : type === 'photo' ? 'Uphold and hide this photo? (You can show it again later.)' : 'Uphold and hide this?',
       keep: type === 'profile' ? 'Uphold without changing their profile?' : 'Uphold but keep it visible?',
       dismiss: 'Dismiss these reports?',
       unhide: 'Show this again?',
     }[act];
     const who = {
       hide: type === 'place' ? 'Everyone who reported it gets a message saying it was removed.'
-        : 'Everyone who reported it gets a message, and so does ' + (type === 'review' ? 'the author' : 'this person') + ', with the reason and support@gracioapp.com for appeals.',
+        : 'Everyone who reported it gets a message, and so does ' + (type === 'review' || type === 'photo' ? 'the author' : 'this person') + ', with the reason and support@gracioapp.com for appeals.',
       keep: 'Everyone who reported it gets a message saying you took action.',
       dismiss: 'Everyone who reported it gets a message saying it doesn\'t break the rules. The author isn\'t told.',
-      unhide: type === 'review' ? 'The author gets a message saying it\'s visible again.' : '',
+      unhide: type === 'review' || type === 'photo' ? 'The author gets a message saying it\'s visible again.' : '',
     }[act];
     const trusted = (act === 'hide' || act === 'keep') && type === 'review' ? '\n\nThe author loses Trusted status for 90 days.' : '';
     if (!confirm(label + (who ? '\n\n' + who : '') + trusted)) return;
@@ -555,7 +558,8 @@
     card.querySelectorAll('button').forEach((b) => b.disabled = true);
     try {
       if (act === 'unhide') {
-        await rpc(type === 'review' ? 'admin_set_review_status' : 'admin_set_place_status',
+        if (type === 'photo') await rpc('admin_set_photo_status', { p_photo_id: id, p_status: 'approved' });
+        else await rpc(type === 'review' ? 'admin_set_review_status' : 'admin_set_place_status',
           type === 'review' ? { p_review_id: id, p_status: 'visible' } : { p_place_id: id, p_status: 'active' });
         toast('Visible again');
       } else {
