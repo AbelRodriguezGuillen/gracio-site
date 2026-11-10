@@ -105,6 +105,7 @@
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
+    <button data-tab="emails">Emails</button>
   </nav>
 </header>
 
@@ -168,6 +169,15 @@
     </div>
     <div id="commentsList"></div>
     <div class="actions"><button id="moreComments" class="btn hidden">Load more</button></div>
+  </section>
+
+  <!-- Emails sent, skipped or failed (no addresses) -->
+  <section id="tab-emails" class="hidden">
+    <div class="toolbar">
+      <span class="meta">Emails go out a minute or so after the Inbox message. Skipped: the person turned review emails off, is suspended, has no address, or a newer email replaced it. Account messages always go.</span>
+      <button class="btn" data-refresh="emails">Refresh</button>
+    </div>
+    <div id="emailsList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -379,10 +389,10 @@
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -586,6 +596,7 @@
             ${r.verified ? '<span class="pill">Verified</span>' : ''}
             ${r.open_reports ? `<span class="pill warn">${r.open_reports} open report${r.open_reports === 1 ? '' : 's'}</span>` : ''}
             ${r.review_status === 'hidden' ? '<span class="pill bad">Hidden</span>' : ''}
+            <span class="pill hidden" data-votes></span>
           </div>
           <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)}</div>
           <div class="comment">${esc(r.comment)}</div>
@@ -600,8 +611,45 @@
       list.querySelectorAll('[data-delete-review]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => deleteReview(b.closest('.card').dataset.review, b, () => loadComments(true)); });
       list.querySelectorAll('[data-act]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => toggleReview(b); });
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadComments(true)); });
+      showVotes(rows.map((r) => r.review_id));
       commentsCursor = rows.length ? rows[rows.length - 1].created_at : commentsCursor;
       $('moreComments').classList.toggle('hidden', rows.length < 25);
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // Helpful / Not helpful counts (Not helpful is visible to moderators only). Quietly skipped if unavailable.
+  async function showVotes(ids) {
+    if (!ids.length) return;
+    try {
+      const rows = await rpc('admin_review_vote_counts', { p_review_ids: ids });
+      for (const v of rows || []) {
+        if (!v.helpful_count && !v.not_helpful_count) continue;
+        document.querySelectorAll(`#commentsList .card[data-review="${CSS.escape(v.review_id)}"] [data-votes]`).forEach((el) => {
+          el.textContent = `Helpful ${fmt(v.helpful_count)} · Not helpful ${fmt(v.not_helpful_count)}`;
+          el.classList.remove('hidden');
+        });
+      }
+    } catch (e) { /* votes aren't set up yet */ }
+  }
+
+  // ---------- emails ----------
+  const EMAIL_STATUS = { queued: 'Waiting', sending: 'Sending', sent: 'Sent', skipped: 'Skipped', failed: 'Failed' };
+  async function loadEmails() {
+    const list = $('emailsList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_email_log', { p_limit: 200 });
+      if (!rows.length) { list.innerHTML = '<div class="empty">No emails yet.</div>'; return; }
+      list.innerHTML = rows.map((r) => `
+        <div class="card">
+          <div class="row">
+            <span class="title">${esc(r.subject)}</span>
+            <span class="pill ${r.status === 'failed' ? 'bad' : r.status === 'skipped' ? 'warn' : ''}">${esc(EMAIL_STATUS[r.status] || r.status)}</span>
+            ${r.category === 'safety' ? '<span class="pill">Account</span>' : ''}
+          </div>
+          <div class="meta">${esc(r.person || 'Deleted account')} · ${when(r.created_at)}${r.sent_at ? ' · sent ' + when(r.sent_at) : ''}${r.attempts > 1 ? ' · ' + r.attempts + ' tries' : ''}</div>
+          ${r.last_error ? `<div class="meta">${esc(r.last_error)}</div>` : ''}
+        </div>`).join('');
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
