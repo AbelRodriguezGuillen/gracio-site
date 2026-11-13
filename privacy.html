@@ -22,7 +22,7 @@
 </div></header>
 <main class="wrap doc">
 <h1>Privacy policy</h1>
-<p class="date">Effective November 13, 2026 (push notifications, account restrictions; earlier: emails about your reviews and account, Helpful votes, public names, reviewer profiles, photo credits and photo reports)</p>
+<p class="date">Effective November 13, 2026 (crash and error reports; push notifications, account restrictions; earlier: emails about your reviews and account, Helpful votes, public names, reviewer profiles, photo credits and photo reports)</p>
 
 <div class="box">
   <p><strong>The short version.</strong> Gracio collects what it needs to run: your sign-in details, your profile and what you post. Your location is used to sort places by distance and is not stored. Every review is checked before it's posted: people's names are hidden automatically, which means the text of your comment is sent to Anthropic's Claude AI for that check. There are no ads and no third-party trackers, and your personal data is never sold. You can delete your account and everything you posted at any time.</p>
@@ -53,10 +53,12 @@
 <p>When you type an address in "Add a business", the text you type is sent through our server to Geoapify, our address search service, which sends back matching addresses. We don't send your name, email address or account details with it. If you've allowed location, we may also send your approximate position (rounded to about 1 kilometer) so nearby addresses come first. When you pick an address, its street, town, state, ZIP code and map coordinates are saved with your suggestion. If a business you suggested is added, that address and location become part of its public listing. If you'd rather not use address search, you can type the address in yourself.</p>
 <h3>Game scores</h3>
 <p>When you're signed in, your best score in each game is saved with your account and shown on the game leaderboard. When you're signed out, it's kept only on your phone.</p>
+<h3>Crash and error reports</h3>
+<p>If the app crashes or hits an error, it sends a report to Sentry, our error-reporting service, so we can fix the problem. A report has what went wrong and where in the app's code, the app version, and your phone's model and iOS version. It doesn't include your name, email address, account, location, reviews or photos, and we've set Sentry not to keep IP addresses. We don't record your screen or what you tap, and we don't use these reports for advertising or to follow what you do.</p>
 <h3>Technical logs</h3>
 <p>Like most online services, our database provider keeps short-lived server logs (for example, IP address and the time of a request) for security and troubleshooting.</p>
 <h3>What we don't collect</h3>
-<p>Your contacts, your photo library (only the photos you choose), health data or advertising ID. Gracio has no ads, no third-party analytics and no tracking across other apps or websites.</p>
+<p>Your contacts, your photo library (only the photos you choose), health data or advertising ID. Gracio has no ads, no third-party analytics, no screen recording and no tracking across other apps or websites.</p>
 
 <h2>How we use it</h2>
 <ul>
@@ -89,7 +91,8 @@
   <li><strong>Apple</strong> and <strong>Google</strong>: Sign in with Apple and Sign in with Google.</li>
   <li><strong>Geoapify</strong>: address search. Finds matching addresses when you add a business (see "Address search"). Address data is from OpenStreetMap contributors.</li>
   <li><strong>Resend</strong>: delivers the emails we send you (see "Messages from Gracio"). It receives your email address, your first name and the message so it can deliver it.</li>
-  <li><strong>Expo</strong>: delivers push notifications, if you turn them on, through Apple or Google (see "Push notifications"). It receives your phone's notification address and the short text of the notification.</li>
+  <li><strong>Expo</strong>: delivers push notifications, if you turn them on, through Apple or Google (see "Push notifications"). It receives your phone's notification address and the short text of the notification. Expo also delivers updates to the app; like any download, that request includes your phone's IP address.</li>
+  <li><strong>Sentry</strong>: crash and error reports (see "Crash and error reports").</li>
   <li><strong>Google Workspace</strong>: our email, if you write to us.</li>
 </ul>
 <p>We may also share information if the law requires it, or to protect people from harm.</p>

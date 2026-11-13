@@ -139,6 +139,20 @@
     <div id="signinError" class="error"></div>
   </section>
 
+  <!-- Two-step verification (authenticator app). Staff access needs it, on this page and on the server. -->
+  <section id="twoStep" class="card narrow hidden">
+    <div class="title">Two-step verification</div>
+    <div id="twoStepEnroll" class="hidden">
+      <p class="meta">Set it up once. In an authenticator app (Apple Passwords, Google Authenticator, 1Password…), add an account by scanning this code, or by typing the key under it.</p>
+      <img id="twoStepQr" alt="QR code for your authenticator app" width="200" height="200" style="display:block;margin:12px auto;background:#fff;padding:8px;border-radius:8px">
+      <p class="meta" style="text-align:center;word-break:break-all">Key: <b id="twoStepSecret"></b></p>
+    </div>
+    <label for="twoStepCode">6-digit code from your authenticator app</label>
+    <input id="twoStepCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+    <div class="actions"><button id="doTwoStep" class="btn primary">Continue</button></div>
+    <div id="twoStepError" class="error"></div>
+  </section>
+
   <section id="notMod" class="card narrow hidden">
     <div class="title">Not an admin</div>
     <p class="meta">This account doesn't have the admin or moderator role. Add it in the Supabase SQL Editor (see the top of supabase/migrations/20261028190000_admin_tools.sql), then sign in again.</p>
@@ -371,7 +385,7 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -382,9 +396,56 @@
     hide('signin');
     $('who').textContent = session.user.email || '';
     show('signOut');
-    let mod = false;
-    try { mod = await rpc('is_moderator'); } catch (e) { $('signinError').textContent = e.message; show('signin'); return; }
-    if (!mod) { show('notMod'); return; }
+    hide('twoStep');
+    // Is this a staff account? my_staff_role answers before the code is entered; before the
+    // Nov 16 database update it doesn't exist yet, so fall back to the older check.
+    let staff = false;
+    try { staff = !!(await rpc('my_staff_role')); }
+    catch {
+      try { staff = !!(await rpc('is_moderator')); } catch (e) { $('signinError').textContent = e.message; show('signin'); return; }
+    }
+    if (!staff) { show('notMod'); return; }
+    // Staff must pass the authenticator step in this session. The server checks it too.
+    let verified = false;
+    try { verified = (await sb.auth.mfa.getAuthenticatorAssuranceLevel()).data?.currentLevel === 'aal2'; } catch { verified = false; }
+    if (!verified) { startTwoStep(); return; }
+    enterAdmin();
+  }
+
+  let twoStepFactor = null;
+  async function startTwoStep() {
+    $('twoStepError').textContent = '';
+    $('twoStepCode').value = '';
+    hide('twoStepEnroll');
+    show('twoStep');
+    const { data, error } = await sb.auth.mfa.listFactors();
+    if (error) { $('twoStepError').textContent = error.message; return; }
+    const ready = (data.totp || [])[0]; // already set up: just ask for the code
+    if (ready) { twoStepFactor = ready.id; $('twoStepCode').focus(); return; }
+    // First time: clear any unfinished attempt, then show a new code to scan.
+    for (const f of (data.all || [])) {
+      if (f.factor_type === 'totp' && f.status !== 'verified') await sb.auth.mfa.unenroll({ factorId: f.id });
+    }
+    const { data: en, error: enrollError } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Gracio admin ' + new Date().toISOString().slice(0, 16) });
+    if (enrollError) { $('twoStepError').textContent = enrollError.message; return; }
+    twoStepFactor = en.id;
+    $('twoStepQr').src = en.totp.qr_code;
+    $('twoStepSecret').textContent = en.totp.secret;
+    show('twoStepEnroll');
+    $('twoStepCode').focus();
+  }
+  $('doTwoStep').onclick = async () => {
+    const code = $('twoStepCode').value.replace(/\D/g, '');
+    if (code.length !== 6 || !twoStepFactor) { $('twoStepError').textContent = 'Enter the 6-digit code.'; return; }
+    $('twoStepError').textContent = '';
+    const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: twoStepFactor, code });
+    if (error) { $('twoStepError').textContent = error.message; return; }
+    hide('twoStep');
+    enterAdmin();
+  };
+  $('twoStepCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('doTwoStep').click(); });
+
+  async function enterAdmin() {
     try { isAdmin = !!(await rpc('is_admin')); } catch { isAdmin = false; } // false until the Nov 2 database update is run
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
     show('tabs');
