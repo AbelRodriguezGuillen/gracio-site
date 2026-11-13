@@ -105,7 +105,7 @@
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
-    <button data-tab="emails">Emails</button>
+    <button data-tab="emails">Emails &amp; push</button>
   </nav>
 </header>
 
@@ -174,10 +174,14 @@
   <!-- Emails sent, skipped or failed (no addresses) -->
   <section id="tab-emails" class="hidden">
     <div class="toolbar">
-      <span class="meta">Emails go out a minute or so after the Inbox message. Skipped: the person turned review emails off, is suspended, has no address, or a newer email replaced it. Account messages always go.</span>
+      <span class="meta">Emails and push notifications go out a minute or so after the Inbox message. Sent = the provider accepted it, not proof it arrived. Skipped: the person turned it off, is suspended (review updates only), has no address or no phone registered. Account emails always go, and go first.</span>
       <button class="btn" data-refresh="emails">Refresh</button>
     </div>
+    <div id="deliveryHealth"></div>
+    <h3 class="meta" style="margin:14px 0 6px">Emails</h3>
     <div id="emailsList"></div>
+    <h3 class="meta" style="margin:18px 0 6px">Push notifications (no phone addresses are shown)</h3>
+    <div id="pushList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -200,7 +204,7 @@
   <!-- Suspended accounts -->
   <section id="tab-accounts" class="hidden">
     <div class="toolbar">
-      <span class="meta">Suspended accounts can read and block people, but can't post reviews, send reports, suggest businesses, make collections or change their profile.</span>
+      <span class="meta">Suspended accounts can read, block people and delete their account, but can't post reviews, photos, votes or game scores, send reports, suggest businesses, make collections or change their profile. Only admins suspend or lift. A suspension with an end date ends by itself, and the person is told.</span>
       <button class="btn" data-refresh="accounts">Refresh</button>
     </div>
     <div id="accountsList"></div>
@@ -636,21 +640,48 @@
   const EMAIL_STATUS = { queued: 'Waiting', sending: 'Sending', sent: 'Sent', skipped: 'Skipped', failed: 'Failed' };
   async function loadEmails() {
     const list = $('emailsList');
+    const health = $('deliveryHealth');
+    const pushList = $('pushList');
     list.innerHTML = '<div class="empty">Loading…</div>';
-    try {
-      const rows = await rpc('admin_email_log', { p_limit: 200 });
-      if (!rows.length) { list.innerHTML = '<div class="empty">No emails yet.</div>'; return; }
-      list.innerHTML = rows.map((r) => `
+    health.innerHTML = '';
+    pushList.innerHTML = '';
+    const card = (r, title) => `
         <div class="card">
           <div class="row">
-            <span class="title">${esc(r.subject)}</span>
+            <span class="title">${esc(title)}</span>
             <span class="pill ${r.status === 'failed' ? 'bad' : r.status === 'skipped' ? 'warn' : ''}">${esc(EMAIL_STATUS[r.status] || r.status)}</span>
-            ${r.category === 'safety' ? '<span class="pill">Account</span>' : ''}
+            ${r.category === 'safety' || r.category === 'account' ? '<span class="pill">Account</span>' : ''}
           </div>
-          <div class="meta">${esc(r.person || 'Deleted account')} · ${when(r.created_at)}${r.sent_at ? ' · sent ' + when(r.sent_at) : ''}${r.attempts > 1 ? ' · ' + r.attempts + ' tries' : ''}</div>
+          <div class="meta">${esc(r.person || 'Deleted account')} · ${when(r.created_at)}${r.sent_at ? ' · sent ' + when(r.sent_at) : ''}${r.attempts > 1 ? ' · ' + r.attempts + ' tries' : ''}${r.devices ? ' · ' + r.devices + (r.devices === 1 ? ' phone' : ' phones') : ''}</div>
           ${r.last_error ? `<div class="meta">${esc(r.last_error)}</div>` : ''}
-        </div>`).join('');
+        </div>`;
+    // Failed ones first, so they can't be missed; then newest first as the database sent them.
+    const failedFirst = (rows) => [...rows.filter((r) => r.status === 'failed'), ...rows.filter((r) => r.status !== 'failed')];
+    // Summary and warnings (needs the Nov 15 database update; without it the lists below still work).
+    try {
+      const h = await rpc('admin_delivery_health');
+      const tile = (n, label, sub) => `<div class="tile"><div class="v">${esc(String(n))}</div><div class="k">${esc(label)}<br>${esc(sub)}</div></div>`;
+      health.innerHTML =
+        (h.warnings || []).map((w) => `<div class="card error">${esc(w)}</div>`).join('')
+        + '<div class="tiles">'
+        + tile(`${h.email.sent_today} / ${h.email.daily_limit}`, 'Emails today', 'resets at midnight UTC')
+        + tile(`${h.email.sent_30d} / ${h.email.monthly_limit}`, 'Emails, 30 days', 'plan allowance per month')
+        + tile(h.email.waiting, 'Emails waiting', 'in the queue now')
+        + tile(h.email.failed_7d, 'Emails failed', 'last 7 days')
+        + tile(h.push.sent_7d, 'Pushes sent', 'last 7 days')
+        + tile(h.push.failed_7d, 'Pushes failed', 'last 7 days')
+        + tile(h.push.phones, 'Phones', 'registered for push')
+        + '</div>'
+        + (h.scheduler_last_run ? `<p class="meta">Scheduler last ran ${when(h.scheduler_last_run)}.</p>` : '');
+    } catch { health.innerHTML = ''; }
+    try {
+      const rows = await rpc('admin_email_log', { p_limit: 200 });
+      list.innerHTML = rows.length ? failedFirst(rows).map((r) => card(r, r.subject)).join('') : '<div class="empty">No emails yet.</div>';
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+    try {
+      const rows = await rpc('admin_push_log', { p_limit: 200 });
+      pushList.innerHTML = rows.length ? failedFirst(rows).map((r) => card(r, r.title)).join('') : '<div class="empty">No push notifications yet.</div>';
+    } catch { pushList.innerHTML = '<div class="empty">Push notifications aren\'t set up in the database yet.</div>'; }
   }
 
   async function toggleReview(btn) {
@@ -735,9 +766,10 @@
             <div class="meta">${esc(r.email || 'no email')}${r.sign_in ? ' · ' + esc(r.sign_in) : ''}</div>
             <div class="meta">Joined ${ago(r.joined)} · last signed in ${ago(r.last_sign_in)} · ${fmt(r.reviews)} review${r.reviews === 1 ? '' : 's'} · ${fmt(r.photos)} photo${r.photos === 1 ? '' : 's'}</div>
           </div>
-          <div class="actions"><button class="btn" data-names>Name history</button>${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
+          <div class="actions"><button class="btn" data-names>Name history</button><button class="btn" data-history>History</button>${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
         </div>`).join(''));
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadUsers(true)); });
+      list.querySelectorAll('[data-history]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => accountHistory(b); });
       list.querySelectorAll('[data-names]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => nameHistory(b); });
       usersOffset += rows.length;
       $('moreUsers').classList.toggle('hidden', rows.length < 50);
@@ -760,19 +792,41 @@
   }
 
   // ---------- suspensions ----------
+  // Only admins can suspend or lift (moderators can see who is suspended and each account's history).
+  const SUSPEND_REASONS = [['spam', 'Spam or advertising'], ['harassment', 'Harassment or abusive language'], ['fake', 'Fake or misleading reviews'],
+    ['inappropriate', 'Inappropriate photos or content'], ['repeated', 'Repeated rule violations'], ['other', 'Breaking Gracio\'s rules']];
+
+  // Everything moderators did about one account: earlier suspensions (with reason and length), removed reviews, resets.
+  async function accountHistory(btn) {
+    const id = btn.closest('.card').dataset.account;
+    btn.disabled = true;
+    try {
+      const rows = await rpc('admin_account_actions', { p_user_id: id });
+      alert(rows.length
+        ? 'Moderation history (newest first):\n\n' + rows.map((r) => `${when(r.created_at)}: ${r.action}${r.target_type === 'review' ? ' (a review)' : ''}${r.note ? ' · ' + r.note : ''} · by ${r.moderator}`).join('\n')
+        : 'Nothing has been done about this account.');
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
+  }
+
   async function suspend(btn, reload) {
     const id = btn.closest('.card').dataset.account;
     if (!id) return;
+    if (!isAdmin) { toast('Only admins can suspend accounts.'); return; }
+    const pick = prompt('Why? The person sees this general reason (never your note).\n\n' + SUSPEND_REASONS.map((r, i) => `${i + 1} = ${r[1]}`).join('\n'), '6');
+    if (pick === null) return;
+    const reason = SUSPEND_REASONS[Number(pick) - 1];
+    if (!reason) { toast('Enter a number from 1 to 6.'); return; }
     const days = prompt('Suspend for how many days?\n\nLeave empty to suspend until you lift it.', '7');
     if (days === null) return;
     const n = days.trim() === '' ? null : Number(days);
     if (n !== null && !(Number.isInteger(n) && n >= 1 && n <= 3650)) { toast('Enter 1 to 3650 days, or leave it empty.'); return; }
     const hideAll = confirm('Also hide every review they\'ve written?\n\nOK = hide them all. Cancel = keep their reviews.');
-    const note = prompt('Optional note for the log:', '') || '';
-    if (!confirm(`Suspend ${n ? 'for ' + n + ' day' + (n === 1 ? '' : 's') : 'until you lift it'}${hideAll ? ' and hide their reviews' : ''}?\n\nThey get a message with the end date and support@gracioapp.com for appeals.`)) return;
+    const note = prompt('Optional private note for the log (the person never sees it):', '') || '';
+    if (!confirm(`Suspend ${n ? 'for ' + n + ' day' + (n === 1 ? '' : 's') : 'until you lift it'}${hideAll ? ' and hide their reviews' : ''}?\nReason shown to them: ${reason[1]}\n\nThey get an Inbox message, an email and (if they allowed it) a notification, with the end date and support@gracioapp.com for appeals.${n ? ' It ends by itself, and they are told when it does.' : ''}`)) return;
     btn.disabled = true;
     try {
-      await rpc('admin_suspend_account', { p_user_id: id, p_days: n, p_note: note, p_hide_reviews: hideAll });
+      await rpc('admin_suspend_account', { p_user_id: id, p_days: n, p_note: note, p_hide_reviews: hideAll, p_reason: reason[0] });
       toast('Suspended');
       reload();
     } catch (e) { toast(e.message); btn.disabled = false; }
@@ -787,11 +841,13 @@
       list.innerHTML = rows.map((r) => `
         <div class="card" data-account="${esc(r.user_id)}">
           <div class="title">${esc(r.display_name)}</div>
-          <div class="meta">Suspended ${when(r.suspended_at)} · ${r.until ? 'until ' + when(r.until) : 'until you lift it'}</div>
+          <div class="meta">Suspended ${when(r.suspended_at)} · ${r.until ? 'until ' + when(r.until) + ' (ends by itself)' : 'until an admin lifts it'}</div>
+          ${r.reason ? `<div class="meta">Reason shown to them: ${esc(r.reason)}</div>` : ''}
           ${r.note ? `<div class="comment">${esc(r.note)}</div>` : ''}
-          <div class="actions"><button class="btn" data-lift>Lift suspension</button></div>
+          <div class="actions"><button class="btn" data-history>History</button>${isAdmin ? '<button class="btn" data-lift>Lift suspension</button>' : ''}</div>
         </div>`).join('');
       list.querySelectorAll('[data-lift]').forEach((b) => b.onclick = () => lift(b));
+      list.querySelectorAll('[data-history]').forEach((b) => b.onclick = () => accountHistory(b));
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
