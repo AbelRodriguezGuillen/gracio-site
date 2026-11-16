@@ -96,9 +96,9 @@
     <button id="signOut" class="btn hidden">Sign out</button>
   </div>
   <nav id="tabs" class="hidden">
-    <button data-tab="reviews" class="on">Reviews<span id="reviewBadge" class="badge hidden"></span></button>
+    <button data-tab="reviews" class="on">Pending reviews<span id="reviewBadge" class="badge hidden"></span></button>
     <button data-tab="reports">Reports<span id="reportBadge" class="badge hidden"></span></button>
-    <button data-tab="comments">Comments</button>
+    <button data-tab="comments">Approved reviews</button>
     <button data-tab="users" class="admin-only hidden">Accounts</button>
     <button data-tab="accounts">Suspended</button>
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
@@ -161,7 +161,7 @@
   <section id="tab-comments" class="hidden">
     <div class="toolbar">
       <select id="commentFilter">
-        <option value="all">All comments</option>
+        <option value="all">All approved</option>
         <option value="reported">Reported</option>
         <option value="hidden">Hidden</option>
       </select>
@@ -591,7 +591,7 @@
     try {
       const rows = await rpc('admin_comments', { p_filter: $('commentFilter').value, p_limit: 25, p_before: commentsCursor });
       if (reset) list.innerHTML = '';
-      if (reset && !rows.length) { list.innerHTML = '<div class="empty">No comments here.</div>'; hide('moreComments'); return; }
+      if (reset && !rows.length) { list.innerHTML = '<div class="empty">No reviews here.</div>'; hide('moreComments'); return; }
       list.insertAdjacentHTML('beforeend', rows.map((r) => `
         <div class="card" data-review="${esc(r.review_id)}" data-status="${esc(r.review_status)}" data-account="${esc(r.author_id)}">
           <div class="row">
