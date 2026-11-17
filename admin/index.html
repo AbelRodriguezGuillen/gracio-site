@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-1K+215w2ixRJdeX2Pgk5FZ6rBFYKvX9SSMe1c3AvirI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-39qugrK/jpMj+3WsyomvuMAzrpk5OFmxX0+9i1Eh0P0='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -111,6 +111,7 @@
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
     <button data-tab="emails">Emails &amp; push</button>
+    <button data-tab="security" class="admin-only hidden">Security<span id="securityBadge" class="badge hidden"></span></button>
   </nav>
 </header>
 
@@ -211,6 +212,20 @@
     <div id="emailsList"></div>
     <h3 class="meta" style="margin:18px 0 6px">Push notifications (no phone addresses are shown)</h3>
     <div id="pushList"></div>
+  </section>
+
+  <!-- Security events and checks (admins only) -->
+  <section id="tab-security" class="hidden">
+    <div class="toolbar">
+      <select id="securityStatus">
+        <option value="open">Open</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <button class="btn" data-refresh="security">Refresh</button>
+    </div>
+    <p class="meta">Checked every 5 minutes. Critical events are emailed right away, high ones in one email an hour at most, low ones only show here. Attempts the database refused leave no trace here (Supabase &gt; Logs has them).</p>
+    <div id="securityChecks"></div>
+    <div id="securityList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -468,18 +483,20 @@
     show('tabs');
     openTab('reviews');
     refreshReportBadge();
+    refreshSecurityBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
   document.querySelectorAll('[data-refresh]').forEach((b) => b.onclick = () => loaders[b.dataset.refresh]());
   $('reportStatus').onchange = loadReports;
+  $('securityStatus').onchange = loadSecurity;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -788,6 +805,65 @@
       const rows = await rpc('admin_push_log', { p_limit: 200 });
       pushList.innerHTML = rows.length ? failedFirst(rows).map((r) => card(r, r.title)).join('') : '<div class="empty">No push notifications yet.</div>';
     } catch { pushList.innerHTML = '<div class="empty">Push notifications aren\'t set up in the database yet.</div>'; }
+  }
+
+  // ---------- security (admins only) ----------
+  const SEVERITY = { critical: ['Critical', 'bad'], high: ['High', 'warn'], low: ['Low', ''] };
+  const OUTCOME = { blocked: 'Blocked by a limit', succeeded: 'Went through', unknown: 'Outcome unknown' };
+  async function refreshSecurityBadge() {
+    const badge = $('securityBadge');
+    if (!isAdmin) { badge.classList.add('hidden'); return; }
+    try {
+      const o = await rpc('admin_security_overview');
+      const n = (o.open?.critical || 0) + (o.open?.high || 0);
+      badge.textContent = String(n);
+      badge.classList.toggle('hidden', n === 0);
+      return o;
+    } catch { badge.classList.add('hidden'); return null; } // before the Nov 17 database update
+  }
+  async function loadSecurity() {
+    const checks = $('securityChecks');
+    const list = $('securityList');
+    const open = $('securityStatus').value === 'open';
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    const o = await refreshSecurityBadge();
+    if (!o) {
+      checks.innerHTML = '';
+      list.innerHTML = '<div class="empty">Security monitoring isn\'t set up in the database yet.</div>';
+      return;
+    }
+    checks.innerHTML = `<div class="card">
+        ${(o.checks || []).map((c) => `<div class="row" style="margin:4px 0"><span class="pill ${c.ok ? '' : 'bad'}">${c.ok ? 'OK' : 'Check'}</span><span class="title">${esc(c.label)}</span></div><div class="meta" style="margin:0 0 6px">${esc(c.detail || '')}</div>`).join('')}
+        <div class="meta">Alerts are emailed to ${esc(o.alerts_to || 'nobody (no admin@gracioapp.com account)')}.</div>
+      </div>`;
+    try {
+      const rows = await rpc('admin_security_events', { p_open: open, p_limit: 200 });
+      list.innerHTML = rows.length ? rows.map((r) => {
+        const [sevLabel, sevClass] = SEVERITY[r.severity] || [r.severity, ''];
+        return `<div class="card" data-event="${esc(String(r.id))}">
+          <div class="row">
+            <span class="title">${esc(r.label)}</span>
+            <span class="pill ${sevClass}">${esc(sevLabel)}</span>
+            <span class="pill">${esc(OUTCOME[r.outcome] || r.outcome)}</span>
+          </div>
+          <div class="meta">${r.account_name ? esc(r.account_name) + ' · ' : ''}${when(r.created_at)}${r.times > 1 ? ` · seen ${esc(String(r.times))} times, last ${when(r.last_seen_at)}` : ''}${r.emailed_at ? ' · emailed' : ''}</div>
+          <p>${esc(r.detail)}</p>
+          ${r.resolved_at
+            ? `<div class="meta">Resolved ${when(r.resolved_at)}${r.resolved_by_name ? ' by ' + esc(r.resolved_by_name) : ''}${r.resolve_note ? ': ' + esc(r.resolve_note) : ''}</div>`
+            : '<div class="actions"><button class="btn" data-resolve>Resolve</button></div>'}
+        </div>`;
+      }).join('') : `<div class="empty">${open ? 'Nothing open. All quiet.' : 'Nothing resolved yet.'}</div>`;
+      list.querySelectorAll('[data-resolve]').forEach((b) => b.onclick = async () => {
+        const note = prompt('What did you find? (optional, kept with the event)', '');
+        if (note === null) return;
+        b.disabled = true;
+        try {
+          await rpc('admin_resolve_security_event', { p_id: Number(b.closest('.card').dataset.event), p_note: note });
+          toast('Resolved.');
+          loadSecurity();
+        } catch (e) { b.disabled = false; toast(e.message); }
+      });
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
   async function toggleReview(btn) {
