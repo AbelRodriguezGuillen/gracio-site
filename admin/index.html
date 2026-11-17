@@ -8,16 +8,16 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
-    --plum: #391021; --plum-soft: #EFE4E8; --teal: #3F9A96; --teal-soft: #E3F1F0;
-    --ink: #2A1A2E; --ink-soft: #4A3D4E; --muted: #7A6F7D; --line: #D9E2E8;
-    --bg: #F6F8FA; --card: #FFFFFF; --good: #2E7D4F; --bad: #B3261E; --mustard: #E8D97A;
+    --plum: #391021; --plum-soft: #EFE3E1; --teal: #296E6A; --teal-soft: #DCEBE6;
+    --ink: #2A1A2E; --ink-soft: #54464F; --muted: #6E6371; --line: #E4DAC8;
+    --bg: #F5EFE3; --card: #FFFCF6; --good: #2A7148; --bad: #B3261E; --mustard: #D9C383;
     --radius: 12px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --plum: #E7B7C8; --plum-soft: #3A2430; --teal: #6CC3BE; --teal-soft: #1E3533;
-      --ink: #F2ECF3; --ink-soft: #D6CCD8; --muted: #A59BA8; --line: #3A3340;
-      --bg: #17131A; --card: #221C26; --good: #6BC08E; --bad: #F08A82;
+      --plum: #E7AABF; --plum-soft: #3B2430; --teal: #63C1BB; --teal-soft: #1E3836;
+      --ink: #F4EEE6; --ink-soft: #CDC2C4; --muted: #ABA1AF; --line: #3D3338;
+      --bg: #171214; --card: #251E21; --good: #79CB9B; --bad: #FF8F85;
     }
   }
   * { box-sizing: border-box; }
@@ -99,6 +99,7 @@
     <button data-tab="reviews" class="on">Pending reviews<span id="reviewBadge" class="badge hidden"></span></button>
     <button data-tab="reports">Reports<span id="reportBadge" class="badge hidden"></span></button>
     <button data-tab="comments">Approved reviews</button>
+    <button data-tab="declined">Declined reviews</button>
     <button data-tab="users" class="admin-only hidden">Accounts</button>
     <button data-tab="accounts">Suspended</button>
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
@@ -169,6 +170,16 @@
     </div>
     <div id="commentsList"></div>
     <div class="actions"><button id="moreComments" class="btn hidden">Load more</button></div>
+  </section>
+
+  <!-- Declined reviews: reviews and updates that weren't posted, with the reason sent to the writer -->
+  <section id="tab-declined" class="hidden">
+    <div class="toolbar">
+      <button class="btn" data-refresh="declined">Refresh</button>
+    </div>
+    <p class="meta">Reviews and updates you didn't post, newest first. The writer can fix one and send it again, or delete it; then it leaves this list.</p>
+    <div id="declinedList"></div>
+    <div class="actions"><button id="moreDeclined" class="btn hidden">Load more</button></div>
   </section>
 
   <!-- Emails sent, skipped or failed (no addresses) -->
@@ -393,10 +404,10 @@
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -409,6 +420,7 @@
   $('commentFilter').onchange = () => loadComments(true);
   $('metricDays').onchange = loadMetrics;
   $('moreComments').onclick = () => loadComments(false);
+  $('moreDeclined').onclick = () => loadDeclined(false);
   $('moreUsers').onclick = () => loadUsers(false);
   $('morePhotos').onclick = () => loadPhotos(false);
   $('userSort').onchange = () => loadUsers(true);
@@ -618,6 +630,33 @@
       showVotes(rows.map((r) => r.review_id));
       commentsCursor = rows.length ? rows[rows.length - 1].created_at : commentsCursor;
       $('moreComments').classList.toggle('hidden', rows.length < 25);
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // ---------- declined reviews ----------
+  let declinedCursor = null;
+  async function loadDeclined(reset) {
+    const list = $('declinedList');
+    if (reset) { declinedCursor = null; list.innerHTML = '<div class="empty">Loading…</div>'; }
+    try {
+      const rows = await rpc('admin_comments', { p_filter: 'declined', p_limit: 25, p_before: declinedCursor });
+      if (reset) list.innerHTML = '';
+      if (reset && !rows.length) { list.innerHTML = '<div class="empty">No declined reviews.</div>'; hide('moreDeclined'); return; }
+      list.insertAdjacentHTML('beforeend', rows.map((r) => `
+        <div class="card" data-account="${esc(r.author_id)}">
+          <div class="row">
+            <span class="title">${esc(r.place_name)}</span>
+            ${r.is_update ? '<span class="pill">Update</span>' : ''}
+            <span class="pill bad">Declined</span>
+          </div>
+          <div class="meta">${esc(r.author_name)} · ${when(r.created_at)} · ${stars(r.service)}</div>
+          ${r.comment && r.comment.trim() ? `<div class="comment">${esc(r.comment)}</div>` : '<div class="meta">No written review.</div>'}
+          <div class="meta">Reason sent: ${r.decline_note ? esc(r.decline_note) : 'none given'}</div>
+          <div class="actions"><button class="btn" data-suspend>Suspend author</button></div>
+        </div>`).join(''));
+      list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadDeclined(true)); });
+      declinedCursor = rows.length ? rows[rows.length - 1].created_at : declinedCursor;
+      $('moreDeclined').classList.toggle('hidden', rows.length < 25);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 

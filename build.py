@@ -27,7 +27,7 @@ def head(title, desc, path, robots=None):
 <meta property="og:description" content="{desc}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{SITE}{path}">
-<meta name="theme-color" content="#EEF5FA">
+<meta name="theme-color" content="#F5EFE3" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#171214" media="(prefers-color-scheme: dark)">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
 </head>
