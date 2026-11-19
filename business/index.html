@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gracio for business</title>
+<meta name="description" content="Claim your business on Gracio.">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<!-- Only this site's own scripts and Gracio's Supabase project. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/business/business.css">
+<script src="/admin/vendor/supabase-js-2.118.0.js" defer></script>
+<script src="/business/app.js" defer></script>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
+  <nav aria-label="Account"><span id="who" class="who"></span><button id="signOut" class="link" type="button" hidden>Sign out</button></nav>
+</div></header>
+
+<main class="wrap doc biz">
+<h1>For business</h1>
+<p id="status" class="date" role="status" aria-live="polite">Loading…</p>
+
+<!-- Signed out -->
+<section id="signedOut" hidden>
+  <p>Own or run a business on Gracio? Claim it here. We'll call the phone number on your Gracio listing to confirm it's you, usually within a few business days.</p>
+  <p>Business accounts use Google sign-in and an authenticator app (two-step sign-in), so nobody else can take over your business.</p>
+  <button id="google" class="btn primary" type="button">Continue with Google</button>
+  <p class="small">By continuing you agree to the <a href="/terms.html">Terms of use</a> and the <a href="/privacy.html">Privacy policy</a>.</p>
+  <p id="signInError" class="error" role="alert"></p>
+</section>
+
+<!-- Two-step sign-in -->
+<section id="twoStep" hidden>
+  <h2>Two-step sign-in</h2>
+  <div id="enroll" hidden>
+    <p>Business accounts need an authenticator app, like Google Authenticator or 1Password. Scan this code with it, or type in the key below, then enter the 6-digit code it shows.</p>
+    <img id="qr" alt="Code to scan with your authenticator app" width="180" height="180">
+    <p class="small">Key: <code id="secret"></code></p>
+  </div>
+  <p id="askCode">Enter the 6-digit code from your authenticator app.</p>
+  <label for="code">Code</label>
+  <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+  <button id="verify" class="btn primary" type="button">Continue</button>
+  <p id="twoStepError" class="error" role="alert"></p>
+</section>
+
+<!-- Signed in -->
+<section id="home" hidden>
+  <div id="ownedBox" hidden>
+    <h2>Your businesses</h2>
+    <ul id="owned" class="list"></ul>
+    <p class="small">Replying to reviews and editing your business's details are coming next.</p>
+  </div>
+
+  <div id="claimsBox" hidden>
+    <h2>Your claims</h2>
+    <ul id="claims" class="list"></ul>
+  </div>
+
+  <h2>Claim a business</h2>
+  <div id="find">
+    <label for="search">Business name</label>
+    <input id="search" type="search" autocomplete="off" placeholder="For example, Nonna Rosa">
+    <ul id="results" class="list results" aria-live="polite"></ul>
+    <p class="small">Can't find it? Add it in the Gracio app first (Explore → Add a business).</p>
+  </div>
+
+  <div id="form" hidden>
+    <div class="card picked">
+      <strong id="pickedName"></strong>
+      <span id="pickedWhere" class="small"></span>
+      <button id="change" class="link" type="button">Change</button>
+    </div>
+    <label for="name">Your name</label>
+    <input id="name" autocomplete="name" maxlength="80">
+    <label for="role">Your role</label>
+    <input id="role" maxlength="60" placeholder="Owner, manager…">
+    <label for="email">Work email</label>
+    <input id="email" type="email" autocomplete="email" maxlength="254">
+    <label for="phone">Phone number</label>
+    <input id="phone" type="tel" autocomplete="tel" maxlength="25">
+    <label for="note">Anything that helps us confirm it's you (optional)</label>
+    <textarea id="note" rows="3" maxlength="1000"></textarea>
+    <label class="check"><input id="confirm" type="checkbox"> I own this business or am authorized to represent it.</label>
+    <p class="small">We'll call the phone number on the business's Gracio listing to confirm. Claiming is free, and businesses can't pay to change their score.</p>
+    <button id="send" class="btn primary" type="button">Send claim</button>
+    <p id="formError" class="error" role="alert"></p>
+  </div>
+</section>
+</main>
+</body>
+</html>

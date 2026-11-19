@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-gnpPraorwKGPh08Cr7ZFBwW4ZCTeksF1nkx+9Z4nvN4='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-fM09yMJQFCS9m92D71Jkq45QuVIAgLM6c7nc6zGExI8='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -62,6 +62,14 @@
   .dt { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
   .dt input { flex: 1 1 auto; width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
   input::-webkit-date-and-time-value { text-align: left; }
+  .claim-call { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+  .claim-call a.title { display: inline-block; margin-top: 2px; color: var(--ink); }
+  .claim-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0; }
+  .claim-facts dt { color: var(--muted); }
+  .claim-facts dd { margin: 0; overflow-wrap: anywhere; }
+  .claim-note { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  label.check { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; margin: 12px 0 4px; }
+  label.check input { width: auto; margin-top: 3px; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
   .error { color: var(--bad); margin-top: 10px; }
@@ -115,6 +123,7 @@
     <button data-tab="accounts">Suspended</button>
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
     <button data-tab="checkins" class="admin-only hidden">Check-ins<span id="checkinBadge" class="badge hidden"></span></button>
+    <button data-tab="claims" class="admin-only hidden">Claims<span id="claimBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -248,6 +257,20 @@
     </div>
     <p id="checkinHelp" class="meta"></p>
     <div id="checkinsList"></div>
+  </section>
+
+  <!-- Business claims and owners (admins only) -->
+  <section id="tab-claims" class="hidden">
+    <div class="toolbar">
+      <select id="claimView">
+        <option value="open">Waiting claims</option>
+        <option value="decided">Decided claims</option>
+        <option value="owners">Business owners</option>
+      </select>
+      <button class="btn" data-refresh="claims">Refresh</button>
+    </div>
+    <p id="claimHelp" class="meta"></p>
+    <div id="claimsList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -439,8 +462,9 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims');
     $('checkinsList').innerHTML = '';
+    $('claimsList').innerHTML = '';
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -508,13 +532,14 @@
     refreshReportBadge();
     refreshSecurityBadge();
     refreshCheckinBadge();
+    refreshClaimBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -522,6 +547,7 @@
   $('reportStatus').onchange = loadReports;
   $('securityStatus').onchange = loadSecurity;
   $('checkinView').onchange = loadCheckins;
+  $('claimView').onchange = loadClaims;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -1050,6 +1076,123 @@
     btn.disabled = true;
     try { await rpc('admin_revoke_checkin', { p_checkin_id: btn.closest('.card').dataset.checkin, p_reason: reason.trim() }); toast('Visit revoked'); loadCheckins(); }
     catch (e) { btn.disabled = false; toast(e.message); }
+  }
+
+  // ---------- business claims (admins) ----------
+  const CLAIM_DECLINE = { not_verified: 'Couldn\'t confirm by phone', not_owner: 'Not the owner or an authorized person', duplicate: 'Already claimed or sent twice', other: 'Other (write a note)' };
+  const CLAIM_STATUS = { pending: 'Waiting', approved: 'Approved', declined: 'Declined', withdrawn: 'Taken back' };
+  const telHref = (p) => 'tel:' + String(p || '').replace(/[^\d+]/g, '');
+
+  async function refreshClaimBadge() {
+    if (!isAdmin) return;
+    try {
+      const rows = await rpc('admin_claim_queue', { p_view: 'open' });
+      const b = $('claimBadge');
+      b.textContent = rows.length;
+      b.classList.toggle('hidden', !rows.length);
+    } catch {}
+  }
+
+  async function loadClaims() {
+    const view = $('claimView').value;
+    const list = $('claimsList');
+    $('claimHelp').textContent = {
+      open: 'Oldest first. Call the phone number on the Gracio listing (not the number the person typed), ask for the person by name, and confirm they own or run the business. Then tick "I called" and approve, or decline with a reason. Approving makes them the owner; a business has one owner at a time.',
+      decided: 'The last 100 decided claims, newest first.',
+      owners: 'People who manage a business on Gracio. Removing access takes effect right away. Every change is logged as a security alert.',
+    }[view];
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      if (view === 'owners') return showOwners(list, await rpc('admin_business_members', { p_include_revoked: true }));
+      return showClaims(list, await rpc('admin_claim_queue', { p_view: view }), view === 'open');
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  function showClaims(list, rows, open) {
+    if (open) refreshClaimBadge();
+    if (!rows.length) { list.innerHTML = `<div class="empty">${open ? 'No claims waiting.' : 'No decided claims yet.'}</div>`; return; }
+    list.innerHTML = rows.map((r) => `<div class="card" data-claim="${esc(r.id)}" data-disputed="${r.disputed ? '1' : ''}">
+        <div class="row">
+          <span class="title">${esc(r.place_name)}</span>
+          ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+          ${open ? '' : `<span class="pill ${r.status === 'approved' ? '' : 'warn'}">${esc(CLAIM_STATUS[r.status] || r.status)}</span>`}
+          ${r.disputed ? `<span class="pill bad">Already has an owner${r.current_owner ? ': ' + esc(r.current_owner) : ''}</span>` : ''}
+          ${r.other_open_claims ? `<span class="pill warn">${esc(String(r.other_open_claims))} other claim${r.other_open_claims === 1 ? '' : 's'} waiting</span>` : ''}
+        </div>
+        ${r.address ? `<div class="meta">${esc(r.address)}</div>` : ''}
+        <div class="claim-call">
+          <div class="meta">Phone on the Gracio listing</div>
+          ${r.listing_phone ? `<a class="title" href="${esc(telHref(r.listing_phone))}">${esc(r.listing_phone)}</a>` : '<span class="pill bad">No phone on the listing</span> <span class="meta">Find the business\'s number yourself (its website or Google) before approving, or decline as "Couldn\'t confirm".</span>'}
+        </div>
+        <dl class="claim-facts">
+          <dt>Name</dt><dd>${esc(r.applicant_name)}</dd>
+          <dt>Role</dt><dd>${esc(r.role_title)}</dd>
+          <dt>Work email</dt><dd>${esc(r.contact_email)}</dd>
+          <dt>Phone they gave</dt><dd>${esc(r.contact_phone)}${r.listing_phone && String(r.contact_phone).replace(/\D/g, '').slice(-10) === String(r.listing_phone).replace(/\D/g, '').slice(-10) ? ' <span class="meta">(same as the listing)</span>' : ''}</dd>
+          <dt>Gracio account</dt><dd>${esc(r.public_name || 'Someone')} · ${esc(r.account_email || 'no email')} · joined ${esc(ago(r.account_created))}</dd>
+          <dt>Sent</dt><dd>${when(r.submitted_at)}${r.decided_at ? ' · decided ' + when(r.decided_at) : ''}</dd>
+        </dl>
+        ${r.evidence_note ? `<div class="claim-note"><div class="meta">Their note</div><div>${esc(r.evidence_note)}</div></div>` : ''}
+        ${!open && (r.decision_code || r.decision_note) ? `<div class="meta">${esc(r.decision_code ? (CLAIM_DECLINE[r.decision_code] || r.decision_code) : '')}${r.decision_code && r.decision_note ? ' · ' : ''}${esc(r.decision_note || '')}</div>` : ''}
+        ${open ? `<label class="check"><input type="checkbox" data-f="called"> I called the number on the listing and confirmed this person</label>
+        <label>Note (optional; for the log)</label>
+        <input data-f="note" maxlength="280">
+        <div class="actions">
+          <button class="btn primary" data-approve>Approve</button>
+          <select data-f="code"><option value="">Decline reason…</option>${Object.entries(CLAIM_DECLINE).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+          <button class="btn danger" data-decline>Decline</button>
+        </div>` : ''}
+      </div>`).join('');
+    list.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => decideClaim(b, true));
+    list.querySelectorAll('[data-decline]').forEach((b) => b.onclick = () => decideClaim(b, false));
+  }
+
+  async function decideClaim(btn, approve) {
+    const card = btn.closest('.card');
+    const f = (n) => card.querySelector(`[data-f="${n}"]`);
+    const note = f('note').value.trim();
+    const place = card.querySelector('.title').textContent;
+    const args = { p_claim_id: card.dataset.claim, p_approve: approve, p_called: f('called').checked, p_code: null, p_note: note || null };
+    if (approve) {
+      if (!args.p_called) { toast('Call the number on the listing first, then tick the box.'); return; }
+      const disputed = card.dataset.disputed === '1';
+      if (!confirm(`Make this person the owner of ${place}?${disputed ? '\n\nThis business already has an owner. Approving removes their access.' : ''}\n\nThey can then manage it on gracioapp.com/business.`)) return;
+    } else {
+      args.p_code = f('code').value;
+      if (!args.p_code) { toast('Choose a decline reason.'); return; }
+      if (args.p_code === 'other' && !note) { toast('Write a note for "Other".'); return; }
+      if (!confirm(`Decline this claim (${CLAIM_DECLINE[args.p_code]})?`)) return;
+    }
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      const r = await rpc('admin_decide_claim', args);
+      toast(approve ? (r && r.replaced_owner ? 'Approved; the previous owner\'s access was removed' : 'Approved') : 'Declined');
+      card.remove();
+      if (!$('claimsList').querySelector('.card')) $('claimsList').innerHTML = '<div class="empty">No claims waiting.</div>';
+      refreshClaimBadge();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
+  }
+
+  function showOwners(list, rows) {
+    if (!rows.length) { list.innerHTML = '<div class="empty">No business owners yet.</div>'; return; }
+    list.innerHTML = rows.map((r) => `<div class="card" data-member="${esc(r.id)}">
+        <div class="row">
+          <span class="title">${esc(r.place_name)}</span>
+          ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+          <span class="pill ${r.revoked_at ? 'warn' : ''}">${r.revoked_at ? 'Access removed' : 'Owner'}</span>
+        </div>
+        <div class="meta">${esc(r.public_name || 'Someone')} · ${esc(r.account_email || 'no email')} · since ${when(r.granted_at)}${r.revoked_at ? ' · removed ' + when(r.revoked_at) : ''}</div>
+        ${r.revoke_reason ? `<div class="meta">${esc(r.revoke_reason)}</div>` : ''}
+        ${r.revoked_at ? '' : '<div class="actions"><button class="btn danger" data-remove-owner>Remove access</button></div>'}
+      </div>`).join('');
+    list.querySelectorAll('[data-remove-owner]').forEach((b) => b.onclick = async () => {
+      const reason = prompt('Why is this person\'s access being removed? (for the log, required)', '');
+      if (reason === null) return;
+      if (!reason.trim()) { toast('A reason is required.'); return; }
+      b.disabled = true;
+      try { await rpc('admin_revoke_business_member', { p_member_id: b.closest('.card').dataset.member, p_reason: reason.trim() }); toast('Access removed'); loadClaims(); }
+      catch (e) { b.disabled = false; toast(e.message); }
+    });
   }
 
   async function toggleReview(btn) {
