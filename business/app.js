@@ -190,7 +190,7 @@
     $('formError').textContent = '';
     show('find', false);
     show('form');
-    $('name').focus();
+    $('first').focus();
   }
 
   $('change').onclick = function () {
@@ -205,20 +205,21 @@
     var v = function (id) { return $(id).value.trim(); };
     var err = $('formError');
     err.textContent = '';
-    if (v('name').length < 2) { err.textContent = 'Enter your name.'; return $('name').focus(); }
+    if (!v('first')) { err.textContent = 'Enter your first name.'; return $('first').focus(); }
+    if (!v('last')) { err.textContent = 'Enter your last name.'; return $('last').focus(); }
     if (v('role').length < 2) { err.textContent = 'Enter your role at the business.'; return $('role').focus(); }
     if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v('email'))) { err.textContent = 'Enter a work email address.'; return $('email').focus(); }
     if (v('phone').replace(/\D/g, '').length < 10) { err.textContent = 'Enter a phone number with area code.'; return $('phone').focus(); }
     if (!$('confirm').checked) { err.textContent = 'Please confirm that you own or are authorized to represent this business.'; return; }
     $('send').disabled = true;
     sb.rpc('submit_business_claim', {
-      p_place_id: picked.id, p_name: v('name'), p_role: v('role'), p_email: v('email'), p_phone: v('phone'),
+      p_place_id: picked.id, p_name: v('first') + ' ' + v('last'), p_role: v('role'), p_email: v('email'), p_phone: v('phone'),
       p_note: v('note'), p_confirm: true, p_request_id: requestId,
     }).then(function (r) {
       $('send').disabled = false;
       if (r.error) { err.textContent = r.error.message; return; }
       if (r.data && r.data.status === 'refused') { err.textContent = r.data.message; return; }
-      ['name', 'role', 'email', 'phone', 'note', 'search'].forEach(function (id) { $(id).value = ''; });
+      ['first', 'last', 'role', 'email', 'phone', 'note', 'search'].forEach(function (id) { $(id).value = ''; });
       $('confirm').checked = false;
       $('results').textContent = '';
       picked = null;
