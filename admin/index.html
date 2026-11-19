@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-fM09yMJQFCS9m92D71Jkq45QuVIAgLM6c7nc6zGExI8='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-G9GhEN7IRMTMACdev9Bi+FTpDOHpqyQ3KkyteyBIeck='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -62,6 +62,8 @@
   .dt { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
   .dt input { flex: 1 1 auto; width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
   input::-webkit-date-and-time-value { text-align: left; }
+  .reply-review { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .reply-body { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; }
   .claim-call { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
   .claim-call a.title { display: inline-block; margin-top: 2px; color: var(--ink); }
   .claim-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0; }
@@ -124,6 +126,7 @@
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
     <button data-tab="checkins" class="admin-only hidden">Check-ins<span id="checkinBadge" class="badge hidden"></span></button>
     <button data-tab="claims" class="admin-only hidden">Claims<span id="claimBadge" class="badge hidden"></span></button>
+    <button data-tab="replies" class="admin-only hidden">Replies<span id="replyBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -271,6 +274,19 @@
     </div>
     <p id="claimHelp" class="meta"></p>
     <div id="claimsList"></div>
+  </section>
+
+  <!-- Business replies to reviews (admins only) -->
+  <section id="tab-replies" class="hidden">
+    <div class="toolbar">
+      <select id="replyView">
+        <option value="open">Waiting replies</option>
+        <option value="decided">Decided replies</option>
+      </select>
+      <button class="btn" data-refresh="replies">Refresh</button>
+    </div>
+    <p id="replyHelp" class="meta"></p>
+    <div id="repliesList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -462,9 +478,10 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies');
     $('checkinsList').innerHTML = '';
     $('claimsList').innerHTML = '';
+    $('repliesList').innerHTML = '';
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -533,13 +550,14 @@
     refreshSecurityBadge();
     refreshCheckinBadge();
     refreshClaimBadge();
+    refreshReplyBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -548,6 +566,7 @@
   $('securityStatus').onchange = loadSecurity;
   $('checkinView').onchange = loadCheckins;
   $('claimView').onchange = loadClaims;
+  $('replyView').onchange = loadReplies;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -1076,6 +1095,97 @@
     btn.disabled = true;
     try { await rpc('admin_revoke_checkin', { p_checkin_id: btn.closest('.card').dataset.checkin, p_reason: reason.trim() }); toast('Visit revoked'); loadCheckins(); }
     catch (e) { btn.disabled = false; toast(e.message); }
+  }
+
+  // ---------- business replies (admins) ----------
+  const REPLY_DECLINE = { not_respectful: 'Not respectful', private_info: 'Shares private details', off_topic: 'Not a reply to the review', promotion: 'Advertising or promotion', other: 'Other (write a note)' };
+  const REPLY_STATUS = { approved: 'Shown', declined: 'Declined', replaced: 'Replaced by a newer reply', removed: 'Taken down' };
+  const REPLY_FLAGS = { threat: 'Threat', harassment: 'Harassment', hate: 'Hate', sexual: 'Sexual', spam: 'Spam or promotion', personal_info: 'Private details', serious_accusation: 'Serious accusation', retaliation: 'Pressure or retaliation', off_topic: 'Off topic' };
+
+  async function refreshReplyBadge() {
+    if (!isAdmin) return;
+    try {
+      const rows = await rpc('admin_reply_queue', { p_view: 'open' });
+      const b = $('replyBadge');
+      b.textContent = rows.length;
+      b.classList.toggle('hidden', !rows.length);
+    } catch {}
+  }
+
+  function replyCheck(c) {
+    if (!c || c.ok !== true) return `<span class="pill warn">Not checked automatically${c && c.problem ? ': ' + esc(c.problem) : ''}</span>`;
+    const flags = (c.flags || []).map((f) => `<span class="pill bad">${esc(REPLY_FLAGS[f] || f)}</span>`).join(' ');
+    const names = (c.names || []).length ? `<span class="pill warn">Names: ${esc(c.names.join(', '))}</span>` : '';
+    return flags || names ? `${flags} ${names}${c.note ? `<div class="meta">${esc(c.note)}</div>` : ''}` : '<span class="pill">Automatic check: nothing found</span>';
+  }
+
+  async function loadReplies() {
+    const view = $('replyView').value;
+    const list = $('repliesList');
+    $('replyHelp').textContent = view === 'open'
+      ? 'Oldest first. Read the review and the reply. Approve if it answers the review respectfully and shares nothing private about the customer. Approved replies show under the review in the app and the reviewer gets an Inbox message.'
+      : 'The last 100 decided replies, newest first. A reply that is shown can be taken down.';
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_reply_queue', { p_view: view });
+      const open = view === 'open';
+      if (open) refreshReplyBadge();
+      if (!rows.length) { list.innerHTML = `<div class="empty">${open ? 'No replies waiting.' : 'No decided replies yet.'}</div>`; return; }
+      list.innerHTML = rows.map((r) => `<div class="card" data-reply="${esc(r.id)}">
+          <div class="row">
+            <span class="title">${esc(r.place_name)}</span>
+            ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+            ${open ? '' : `<span class="pill ${r.status === 'approved' ? '' : 'warn'}">${esc(REPLY_STATUS[r.status] || r.status)}</span>`}
+          </div>
+          <div class="reply-review">
+            <div class="meta">${esc(r.reviewer)}'s review · ${esc(String(r.review_service ?? '?'))} of 5</div>
+            <div>${esc(r.review_comment || '(no comment)')}</div>
+          </div>
+          <div class="meta">Reply from ${esc(r.owner_name || 'the owner')} · ${esc(r.owner_email || 'no email')} · sent ${when(r.submitted_at)}${r.decided_at ? ' · decided ' + when(r.decided_at) : ''}</div>
+          <div class="reply-body">${esc(r.body)}</div>
+          <div class="row">${replyCheck(r.ai_check)}</div>
+          ${r.current_reply && open ? `<div class="meta">Replaces the reply shown now: “${esc(r.current_reply)}”</div>` : ''}
+          ${!open && (r.decision_code || r.decision_note) ? `<div class="meta">${esc(r.decision_code ? (REPLY_DECLINE[r.decision_code] || r.decision_code) : '')}${r.decision_code && r.decision_note ? ' · ' : ''}${esc(r.decision_note || '')}</div>` : ''}
+          ${open ? `<label>Note (optional; for the log)</label>
+          <input data-f="note" maxlength="280">
+          <div class="actions">
+            <button class="btn primary" data-approve>Approve</button>
+            <select data-f="code"><option value="">Decline reason…</option>${Object.entries(REPLY_DECLINE).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+            <button class="btn danger" data-decline>Decline</button>
+          </div>` : r.status === 'approved' ? '<div class="actions"><button class="btn danger" data-takedown>Take down</button></div>' : ''}
+        </div>`).join('');
+      list.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => decideReply(b, true));
+      list.querySelectorAll('[data-decline]').forEach((b) => b.onclick = () => decideReply(b, false));
+      list.querySelectorAll('[data-takedown]').forEach((b) => b.onclick = async () => {
+        const note = prompt('Why is this reply being taken down? (for the log, required)', '');
+        if (note === null) return;
+        if (!note.trim()) { toast('A reason is required.'); return; }
+        b.disabled = true;
+        try { await rpc('admin_remove_reply', { p_reply_id: b.closest('.card').dataset.reply, p_note: note.trim() }); toast('Reply taken down'); loadReplies(); }
+        catch (e) { b.disabled = false; toast(e.message); }
+      });
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decideReply(btn, approve) {
+    const card = btn.closest('.card');
+    const f = (n) => card.querySelector(`[data-f="${n}"]`);
+    const note = f('note').value.trim();
+    const args = { p_reply_id: card.dataset.reply, p_approve: approve, p_code: null, p_note: note || null };
+    if (!approve) {
+      args.p_code = f('code').value;
+      if (!args.p_code) { toast('Choose a decline reason.'); return; }
+      if (args.p_code === 'other' && !note) { toast('Write a note for "Other".'); return; }
+    }
+    if (!confirm(approve ? 'Approve this reply? It shows under the review and the reviewer gets a message.' : `Decline this reply (${REPLY_DECLINE[args.p_code]})?`)) return;
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      await rpc('admin_decide_reply', args);
+      toast(approve ? 'Approved' : 'Declined');
+      card.remove();
+      if (!$('repliesList').querySelector('.card')) $('repliesList').innerHTML = '<div class="empty">No replies waiting.</div>';
+      refreshReplyBadge();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
   }
 
   // ---------- business claims (admins) ----------

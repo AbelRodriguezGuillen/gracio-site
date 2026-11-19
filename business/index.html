@@ -54,7 +54,16 @@
   <div id="ownedBox" hidden>
     <h2>Your businesses</h2>
     <ul id="owned" class="list"></ul>
-    <p class="small">Replying to reviews and editing your business's details are coming next.</p>
+    <p class="small">Choose a business to see its reviews and reply. Every reply is checked by Gracio before it shows in the app.</p>
+  </div>
+
+  <div id="reviewsBox" hidden>
+    <button id="backToHome" class="link" type="button">← All your businesses</button>
+    <h2 id="reviewsTitle">Reviews</h2>
+    <p class="small">Newest first. Replies show under the review in the Gracio app once we approve them, usually within a day. Be respectful and don't share anything private about the customer, such as their order or visit details.</p>
+    <ul id="reviews" class="list"></ul>
+    <button id="moreReviews" class="btn" type="button" hidden>Show 10 more</button>
+    <p id="reviewsError" class="error" role="alert"></p>
   </div>
 
   <div id="claimsBox" hidden>
@@ -62,6 +71,7 @@
     <ul id="claims" class="list"></ul>
   </div>
 
+  <div id="claimArea">
   <h2>Claim a business</h2>
   <div id="find">
     <label for="search">Business name</label>
@@ -92,6 +102,7 @@
     <p class="small">We'll call the phone number on the business's Gracio listing to confirm. Claiming is free, and businesses can't pay to change their score.</p>
     <button id="send" class="btn primary" type="button">Send claim</button>
     <p id="formError" class="error" role="alert"></p>
+  </div>
   </div>
 </section>
 </main>

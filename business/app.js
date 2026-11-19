@@ -118,6 +118,10 @@
         var li = el('li', 'card');
         li.appendChild(el('strong', null, b.place_name));
         li.appendChild(el('span', 'small', [b.town, 'since ' + day(b.since)].filter(Boolean).join(' · ')));
+        var open = el('button', 'link', 'Reviews and replies');
+        open.type = 'button';
+        open.onclick = function () { openReviews(b); };
+        li.appendChild(open);
         list.appendChild(li);
       });
       show('ownedBox', !!(r.data && r.data.length));
@@ -149,6 +153,128 @@
         list.appendChild(li);
       });
       show('claimsBox', !!(r.data && r.data.length));
+    });
+  }
+
+  // ---------- reviews and replies ----------
+  var REPLY_DECLINED = { not_respectful: 'It wasn’t respectful.', private_info: 'It shared private details about the customer.', off_topic: 'It didn’t answer the review.', promotion: 'It was advertising.', other: '' };
+  var place = null, reviewsShown = 0, PAGE = 10;
+
+
+  function openReviews(b) {
+    place = b;
+    ['ownedBox', 'claimsBox', 'claimArea'].forEach(function (id) { show(id, false); });
+    $('reviewsTitle').textContent = 'Reviews of ' + b.place_name;
+    $('reviews').textContent = '';
+    $('reviewsError').textContent = '';
+    reviewsShown = 0;
+    show('reviewsBox');
+    loadReviews();
+    window.scrollTo(0, 0);
+  }
+
+  $('backToHome').onclick = function () {
+    place = null;
+    show('reviewsBox', false);
+    show('claimArea');
+    loadMine(); // shows your businesses and claims again
+  };
+
+  $('moreReviews').onclick = loadReviews;
+
+  function loadReviews() {
+    var forPlace = place;
+    $('moreReviews').disabled = true;
+    sb.rpc('business_reviews', { p_place_id: forPlace.place_id, p_limit: PAGE, p_offset: reviewsShown }).then(function (r) {
+      $('moreReviews').disabled = false;
+      if (place !== forPlace) return;
+      if (r.error) { $('reviewsError').textContent = r.error.message; return; }
+      var rows = r.data || [];
+      if (!reviewsShown && !rows.length) $('reviews').appendChild(el('li', 'small', 'No reviews yet.'));
+      rows.forEach(function (v) { $('reviews').appendChild(reviewItem(v)); });
+      reviewsShown += rows.length;
+      show('moreReviews', rows.length === PAGE);
+    });
+  }
+
+  function reviewItem(v) {
+    var li = el('li', 'card review');
+    li.appendChild(el('strong', null, v.reviewer));
+    li.appendChild(el('span', 'small', v.service + ' of 5 · ' + day(v.reviewed_at) + (v.verified ? ' · Verified visit' : '')));
+    if (v.comment) li.appendChild(el('p', 'quote', v.comment));
+    var state = el('div', 'reply-state');
+    li.appendChild(state);
+    var takeBack = function (id, label, ask) {
+      var b = el('button', 'link', label);
+      b.type = 'button';
+      b.onclick = function () {
+        if (!confirm(ask)) return;
+        b.disabled = true;
+        sb.rpc('withdraw_business_reply', { p_reply_id: id }).then(function (w) {
+          if (w.error) { b.disabled = false; alert(w.error.message); return; }
+          refresh(li, v.review_id);
+        });
+      };
+      return b;
+    };
+    if (v.reply_id) {
+      state.appendChild(el('span', 'pill approved', 'Your reply, shown in the app'));
+      state.appendChild(el('p', 'quote', v.reply_body));
+      state.appendChild(takeBack(v.reply_id, 'Take it down', 'Take down your reply? It disappears from the app.'));
+    }
+    if (v.pending_id) {
+      state.appendChild(el('span', 'pill', v.reply_id ? 'New reply waiting for approval' : 'Waiting for approval'));
+      state.appendChild(el('p', 'quote', v.pending_body));
+      state.appendChild(takeBack(v.pending_id, 'Take back', 'Take back this reply before it’s approved?'));
+    } else {
+      if (v.declined_code) {
+        state.appendChild(el('span', 'pill declined', 'Your last reply wasn’t approved'));
+        if (REPLY_DECLINED[v.declined_code]) state.appendChild(el('p', 'small', REPLY_DECLINED[v.declined_code] + ' You can write a new one.'));
+      }
+      state.appendChild(replyForm(li, v));
+    }
+    return li;
+  }
+
+  function replyForm(li, v) {
+    var box = el('div', 'reply-form');
+    var id = 'reply-' + v.review_id;
+    var label = el('label', null, v.reply_id ? 'Write a new reply (it replaces yours once approved)' : 'Reply');
+    label.htmlFor = id;
+    var text = el('textarea');
+    text.id = id;
+    text.rows = 3;
+    text.maxLength = 600;
+    var count = el('span', 'small', '0 / 600');
+    text.oninput = function () { count.textContent = text.value.length + ' / 600'; };
+    var send = el('button', 'btn primary', 'Send reply');
+    send.type = 'button';
+    var err = el('p', 'error');
+    err.setAttribute('role', 'alert');
+    var req = crypto.randomUUID ? crypto.randomUUID() : null;
+    send.onclick = function () {
+      var body = text.value.trim();
+      if (body.length < 2) { err.textContent = 'Write your reply first.'; return; }
+      send.disabled = true;
+      err.textContent = '';
+      sb.rpc('submit_business_reply', { p_review_id: v.review_id, p_body: body, p_request_id: req }).then(function (r) {
+        send.disabled = false;
+        if (r.error) { err.textContent = r.error.message; return; }
+        refresh(li, v.review_id);
+      });
+    };
+    [label, text, count, send, err].forEach(function (x) { box.appendChild(x); });
+    return box;
+  }
+
+  // Shows one review again after a change (asks for this business's reviews and picks it out).
+  function refresh(li, reviewId) {
+    var forPlace = place;
+    sb.rpc('business_reviews', { p_place_id: forPlace.place_id, p_limit: 50, p_offset: 0 }).then(function (r) {
+      if (place !== forPlace || r.error) return;
+      var v = (r.data || []).filter(function (x) { return x.review_id === reviewId; })[0];
+      if (v) li.replaceWith(reviewItem(v));
+      else openReviews(forPlace); // an older review: show the list again from the top
     });
   }
 
