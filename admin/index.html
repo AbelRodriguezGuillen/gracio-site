@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-39qugrK/jpMj+3WsyomvuMAzrpk5OFmxX0+9i1Eh0P0='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ni38w/zNJ135p2DpxJKzbY7OvWRarEMMpFSpxvCODLw='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -107,6 +107,7 @@
     <button data-tab="users" class="admin-only hidden">Accounts</button>
     <button data-tab="accounts">Suspended</button>
     <button data-tab="suggestions">Suggestions<span id="suggestionBadge" class="badge hidden"></span></button>
+    <button data-tab="checkins" class="admin-only hidden">Check-ins<span id="checkinBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -226,6 +227,20 @@
     <p class="meta">Checked every 5 minutes. Critical events are emailed right away, high ones in one email an hour at most, low ones only show here. Attempts the database refused leave no trace here (Supabase &gt; Logs has them).</p>
     <div id="securityChecks"></div>
     <div id="securityList"></div>
+  </section>
+
+  <!-- Verified visits: receipts to check, receipt trash, location check-ins (admins only) -->
+  <section id="tab-checkins" class="hidden">
+    <div class="toolbar">
+      <select id="checkinView">
+        <option value="waiting">Waiting receipts</option>
+        <option value="trash">Receipt trash</option>
+        <option value="location">Location check-ins</option>
+      </select>
+      <button class="btn" data-refresh="checkins">Refresh</button>
+    </div>
+    <p id="checkinHelp" class="meta"></p>
+    <div id="checkinsList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -417,7 +432,8 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins');
+    $('checkinsList').innerHTML = '';
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -484,19 +500,21 @@
     openTab('reviews');
     refreshReportBadge();
     refreshSecurityBadge();
+    refreshCheckinBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
   document.querySelectorAll('[data-refresh]').forEach((b) => b.onclick = () => loaders[b.dataset.refresh]());
   $('reportStatus').onchange = loadReports;
   $('securityStatus').onchange = loadSecurity;
+  $('checkinView').onchange = loadCheckins;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -864,6 +882,167 @@
         } catch (e) { b.disabled = false; toast(e.message); }
       });
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // ---------- verified visits (admins) ----------
+  // Receipts are private: each photo opens through a link that works for 60 seconds, shown on the page only.
+  // Nothing here stores the photo, the total or the receipt number; only a keyed fingerprint of the last two.
+  const DECLINE_REASONS = { unreadable: 'Too hard to read', wrong_business: 'A different business', too_old: 'Too old',
+    duplicate: 'Already used', date_mismatch: 'Date doesn\'t match the visit', not_a_receipt: 'Not a receipt', other: 'Other' };
+  const VISIT_STATUS = { approved: 'Verified', declined: 'Declined', withdrawn: 'Taken back', revoked: 'Revoked', pending: 'Waiting', uploading: 'Uploading' };
+  const day = (d) => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const todayIso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+
+  async function refreshCheckinBadge() {
+    if (!isAdmin) return;
+    try {
+      const rows = await rpc('admin_checkin_queue', { p_limit: 200 });
+      const b = $('checkinBadge');
+      b.textContent = rows.length;
+      b.classList.toggle('hidden', !rows.length);
+    } catch {}
+  }
+
+  async function loadCheckins() {
+    const view = $('checkinView').value;
+    const list = $('checkinsList');
+    $('checkinHelp').textContent = {
+      waiting: 'Oldest first. Open the receipt, check the business and date, then approve with the date on the receipt, or decline with a reason. Either way the photo moves to trash for 30 days and is then deleted for good. The person gets an Inbox message.',
+      trash: 'Decided receipts, kept 30 days in case you need another look (a receipt the person took back is deleted at the next nightly run). Restore puts one back in the queue; a verified visit stops counting until it\'s decided again.',
+      location: 'Check-ins made at the business by phone location (instant, no photo). Revoke one that looks wrong; the person is told why.',
+    }[view];
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      if (view === 'waiting') return showWaiting(list, await rpc('admin_checkin_queue', { p_limit: 100 }));
+      if (view === 'trash') return showTrash(list, await rpc('admin_receipt_trash', { p_limit: 200 }));
+      return showLocation(list, await rpc('admin_location_checkins', { p_limit: 200 }));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  function showWaiting(list, rows) {
+    refreshCheckinBadge();
+    if (!rows.length) { list.innerHTML = '<div class="empty">No receipts waiting.</div>'; return; }
+    list.innerHTML = rows.map((r) => `<div class="card" data-checkin="${esc(r.id)}" data-path="${esc(r.path)}">
+        <div class="row">
+          <span class="title">${esc(r.place_name)}</span>
+          ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+          ${r.entry_id ? `<span class="pill">For a review · visit ${esc(day(r.entry_visit_date))}</span>` : '<span class="pill">Check-in</span>'}
+          ${r.same_file_elsewhere ? `<span class="pill bad">Same photo sent ${esc(String(r.same_file_elsewhere))}× before</span>` : ''}
+          ${r.declined_recently ? `<span class="pill warn">${esc(String(r.declined_recently))} declined in 90 days</span>` : ''}
+        </div>
+        <div class="meta">${esc(r.public_name || 'Someone')} · joined ${esc(ago(r.account_created))} · ${esc(String(r.approved_here))} verified visit${r.approved_here === 1 ? '' : 's'} here · sent ${when(r.submitted_at)}</div>
+        <div class="receipt"><button class="btn" data-show-receipt>Show receipt</button></div>
+        <label>Date on the receipt</label>
+        <input type="date" data-f="date" max="${todayIso()}" value="${esc(r.entry_id ? String(r.entry_visit_date || '').slice(0, 10) : '')}">
+        <label>Time on the receipt (only if printed)</label>
+        <input type="time" data-f="time">
+        <label>Kind of receipt</label>
+        <select data-f="kind"><option value="">Choose…</option><option value="in_store">In store</option><option value="online_delivery">Online or delivery</option><option value="unclear">Unclear</option></select>
+        <label>Total and receipt or order number (optional: catches the same receipt from another account; only a fingerprint is kept)</label>
+        <div class="row"><input data-f="total" placeholder="Total, e.g. 12.40" style="flex:1;width:auto"><input data-f="number" placeholder="Receipt or order number" style="flex:1;width:auto"></div>
+        <label>Note (optional; shown to the person if you decline)</label>
+        <input data-f="note" maxlength="300">
+        <div class="actions">
+          <button class="btn primary" data-approve>Approve</button>
+          <select data-f="code"><option value="">Decline reason…</option>${Object.entries(DECLINE_REASONS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+          <button class="btn danger" data-decline>Decline</button>
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('[data-show-receipt]').forEach((b) => b.onclick = () => showReceipt(b));
+    list.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => decideCheckin(b, true));
+    list.querySelectorAll('[data-decline]').forEach((b) => b.onclick = () => decideCheckin(b, false));
+  }
+
+  async function showReceipt(btn) {
+    const card = btn.closest('.card');
+    btn.disabled = true;
+    const { data, error } = await sb.storage.from('checkin-receipts').createSignedUrl(card.dataset.path, 60).catch((e) => ({ error: e }));
+    if (error || !data?.signedUrl) { btn.disabled = false; toast(error?.message || 'The receipt could not be opened.'); return; }
+    const box = btn.parentElement;
+    box.innerHTML = '';
+    const img = document.createElement('img');
+    img.alt = 'Receipt';
+    img.style.cssText = 'max-width:100%;max-height:70vh;border-radius:10px;display:block;margin:8px 0;background:var(--line)';
+    img.src = data.signedUrl;
+    img.oncontextmenu = (e) => e.preventDefault();
+    box.appendChild(img);
+  }
+
+  async function decideCheckin(btn, approve, allowMatch = false) {
+    const card = btn.closest('.card');
+    const f = (n) => card.querySelector(`[data-f="${n}"]`).value.trim();
+    const args = { p_checkin_id: card.dataset.checkin, p_approve: approve, p_note: f('note') || null };
+    if (approve) {
+      if (!f('date')) { toast('Enter the date on the receipt.'); return; }
+      if (!f('kind')) { toast('Choose the kind of receipt.'); return; }
+      Object.assign(args, { p_visit_date: f('date'), p_visit_time: f('time') || null, p_kind: f('kind'),
+        p_total: f('total') || null, p_receipt_number: f('number') || null, p_allow_match: allowMatch });
+    } else {
+      if (!f('code')) { toast('Choose a decline reason.'); return; }
+      if (!confirm(`Decline this receipt (${DECLINE_REASONS[f('code')]})?\n\nThe person is told why, and the photo moves to trash.`)) return;
+      args.p_code = f('code');
+    }
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      const r = await rpc('admin_decide_checkin', args);
+      if (r && r.status === 'key_match') {
+        card.querySelectorAll('button').forEach((b) => b.disabled = false);
+        const n = (r.matches || []).length;
+        if (confirm(`This receipt matches ${n} check-in${n === 1 ? '' : 's'} from another account (same business, date, total and number).\n\nApprove it anyway? Usually you'd decline it as "Already used".`)) return decideCheckin(btn, true, true);
+        return;
+      }
+      toast(approve ? (r && r.warning === 'no_key_secret' ? 'Approved (no fingerprint: the receipt key secret isn\'t set up)' : 'Approved') : 'Declined');
+      card.remove();
+      if (!$('checkinsList').querySelector('.card')) $('checkinsList').innerHTML = '<div class="empty">No receipts waiting.</div>';
+      refreshCheckinBadge();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
+  }
+
+  function showTrash(list, rows) {
+    if (!rows.length) { list.innerHTML = '<div class="empty">Trash is empty.</div>'; return; }
+    list.innerHTML = rows.map((r) => `<div class="card" data-checkin="${esc(r.id)}">
+        <div class="row">
+          <span class="title">${esc(r.place_name)}</span>
+          <span class="pill ${r.status === 'approved' ? '' : 'warn'}">${esc(VISIT_STATUS[r.status] || r.status)}</span>
+          ${r.purge_attempts ? `<span class="pill bad">Deletion failed ${esc(String(r.purge_attempts))}×</span>` : ''}
+        </div>
+        <div class="meta">In trash since ${when(r.trashed_at)} · deleted for good ${r.purge_after && new Date(r.purge_after) <= new Date() ? 'at the next nightly run' : 'after ' + when(r.purge_after)}</div>
+        ${r.last_error ? `<div class="meta">Last error: ${esc(r.last_error)}</div>` : ''}
+        <div class="actions">
+          <button class="btn" data-restore>Restore for another look</button>
+          ${r.status === 'approved' ? '<button class="btn danger" data-revoke>Revoke visit</button>' : ''}
+        </div>
+      </div>`).join('');
+    list.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
+      if (!confirm('Put this receipt back in the queue?\n\nIf it was verified, the visit stops counting until you decide again.')) return;
+      b.disabled = true;
+      try { await rpc('admin_restore_receipt', { p_checkin_id: b.closest('.card').dataset.checkin }); toast('Back in the queue'); loadCheckins(); refreshCheckinBadge(); }
+      catch (e) { b.disabled = false; toast(e.message); }
+    });
+    list.querySelectorAll('[data-revoke]').forEach((b) => b.onclick = () => revokeCheckin(b));
+  }
+
+  function showLocation(list, rows) {
+    if (!rows.length) { list.innerHTML = '<div class="empty">No location check-ins yet.</div>'; return; }
+    list.innerHTML = rows.map((r) => `<div class="card" data-checkin="${esc(r.id)}">
+        <div class="row">
+          <span class="title">${esc(r.place_name)}</span>
+          ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+          <span class="pill ${r.status === 'approved' ? '' : 'warn'}">${esc(VISIT_STATUS[r.status] || r.status)}</span>
+        </div>
+        <div class="meta">${esc(r.public_name || 'Someone')} · ${esc(day(r.visit_date))}${r.visit_time ? ' at ' + esc(String(r.visit_time).slice(0, 5)) : ''}</div>
+        ${r.status === 'approved' ? '<div class="actions"><button class="btn danger" data-revoke>Revoke visit</button></div>' : ''}
+      </div>`).join('');
+    list.querySelectorAll('[data-revoke]').forEach((b) => b.onclick = () => revokeCheckin(b));
+  }
+
+  async function revokeCheckin(btn) {
+    const reason = prompt('Why is this visit being revoked? (shown to the person, required)', '');
+    if (reason === null) return;
+    if (!reason.trim()) { toast('A reason is required.'); return; }
+    btn.disabled = true;
+    try { await rpc('admin_revoke_checkin', { p_checkin_id: btn.closest('.card').dataset.checkin, p_reason: reason.trim() }); toast('Visit revoked'); loadCheckins(); }
+    catch (e) { btn.disabled = false; toast(e.message); }
   }
 
   async function toggleReview(btn) {
