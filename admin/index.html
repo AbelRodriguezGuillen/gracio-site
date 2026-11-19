@@ -55,6 +55,9 @@
   select, input { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   label { display: block; font-weight: 600; margin: 12px 0 4px; }
   input { width: 100%; }
+  /* iPhone Safari gives date and time fields a fixed native width that ignores width: 100%. */
+  input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; min-height: 42px; text-align: left; }
+  input::-webkit-date-and-time-value { text-align: left; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
   .error { color: var(--bad); margin-top: 10px; }
