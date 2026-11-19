@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-ni38w/zNJ135p2DpxJKzbY7OvWRarEMMpFSpxvCODLw='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-gnpPraorwKGPh08Cr7ZFBwW4ZCTeksF1nkx+9Z4nvN4='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -55,6 +55,13 @@
   select, input { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   label { display: block; font-weight: 600; margin: 12px 0 4px; }
   input { width: 100%; }
+  /* iPhone Safari gives date and time fields a fixed native width that ignores width: 100%. */
+  input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; min-height: 42px; text-align: left; }
+  /* iPhone Safari sizes date and time boxes wider than width: 100%. The box you see is this wrapper,
+     which keeps the normal width; the field inside fills it and anything extra is clipped. */
+  .dt { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  .dt input { flex: 1 1 auto; width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
+  input::-webkit-date-and-time-value { text-align: left; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
   .error { color: var(--bad); margin-top: 10px; }
@@ -933,9 +940,9 @@
         <div class="meta">${esc(r.public_name || 'Someone')} · joined ${esc(ago(r.account_created))} · ${esc(String(r.approved_here))} verified visit${r.approved_here === 1 ? '' : 's'} here · sent ${when(r.submitted_at)}</div>
         <div class="receipt"><button class="btn" data-show-receipt>Show receipt</button></div>
         <label>Date on the receipt</label>
-        <input type="date" data-f="date" max="${todayIso()}" value="${esc(r.entry_id ? String(r.entry_visit_date || '').slice(0, 10) : '')}">
+        <div class="dt"><input type="date" data-f="date" max="${todayIso()}" value="${esc(r.entry_id ? String(r.entry_visit_date || '').slice(0, 10) : '')}"></div>
         <label>Time on the receipt (only if printed)</label>
-        <input type="time" data-f="time">
+        <div class="dt"><input type="time" data-f="time"></div>
         <label>Kind of receipt</label>
         <select data-f="kind"><option value="">Choose…</option><option value="in_store">In store</option><option value="online_delivery">Online or delivery</option><option value="unclear">Unclear</option></select>
         <label>Total and receipt or order number (optional: catches the same receipt from another account; only a fingerprint is kept)</label>
