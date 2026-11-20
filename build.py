@@ -5,7 +5,13 @@ Run `python3 build.py` after editing anything in src/. Each src page starts with
   <!-- description: One sentence for search results -->
 `{{butler}}` inserts the mascot (assets/mascot.webp, with a PNG for older browsers).
 """
+import hashlib
 import pathlib, re
+
+ROOT = pathlib.Path(__file__).parent
+# Version tag on the style sheets, so browsers load the new styles as soon as they change.
+CSS_VERSION = hashlib.sha1((ROOT / 'assets/site.css').read_bytes()).hexdigest()[:8]
+BIZ_CSS_VERSION = hashlib.sha1((ROOT / 'business/business.css').read_bytes()).hexdigest()[:8]
 
 ROOT = pathlib.Path(__file__).parent
 SITE = 'https://gracioapp.com'
@@ -32,7 +38,7 @@ def head(title, desc, path, robots=None):
 <meta property="og:url" content="{SITE}{path}">
 <meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/site.css?v={CSS_VERSION}">
 </head>
 <body>
 '''
@@ -76,3 +82,12 @@ for src in sorted((ROOT / 'src').glob('*.html')):
     path = '/' if src.name == 'index.html' else f'/{src.name}'
     (ROOT / src.name).write_text(head(title, desc, path, robots and robots.group(1)) + top(path) + body + FOOT)
     print('built', src.name)
+
+
+# The business page is hand-written: point its style sheets at the current versions too.
+_biz = ROOT / 'business/index.html'
+_html = _biz.read_text()
+_new = re.sub(r'href="/assets/site\.css(\?v=\w+)?"', f'href="/assets/site.css?v={CSS_VERSION}"', _html)
+_new = re.sub(r'href="/business/business\.css(\?v=\w+)?"', f'href="/business/business.css?v={BIZ_CSS_VERSION}"', _new)
+if _new != _html:
+    _biz.write_text(_new)
