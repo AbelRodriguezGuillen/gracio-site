@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-FN5wghnABMpYkTSWBEmLnh2Zlgu/L8djE0rg8NsllPo='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-xKM3qab38eFvqmwhYCMWzr47r0GieDPZVLbLql9OTiI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -132,6 +132,7 @@
     <button data-tab="claims" class="admin-only hidden">Claims<span id="claimBadge" class="badge hidden"></span></button>
     <button data-tab="replies" class="admin-only hidden">Replies<span id="replyBadge" class="badge hidden"></span></button>
     <button data-tab="edits" class="admin-only hidden">Details<span id="editBadge" class="badge hidden"></span></button>
+    <button data-tab="pictures" class="admin-only hidden">Pictures<span id="pictureBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -305,6 +306,19 @@
     </div>
     <p id="editHelp" class="meta"></p>
     <div id="editsList"></div>
+  </section>
+
+  <!-- Profile pictures (admins only) -->
+  <section id="tab-pictures" class="hidden">
+    <div class="toolbar">
+      <select id="pictureView">
+        <option value="waiting">Waiting pictures</option>
+        <option value="approved">Current pictures</option>
+      </select>
+      <button class="btn" data-refresh="pictures">Refresh</button>
+    </div>
+    <p id="pictureHelp" class="meta"></p>
+    <div id="picturesList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -496,7 +510,7 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits', 'tab-pictures');
     $('checkinsList').innerHTML = '';
     $('claimsList').innerHTML = '';
     $('repliesList').innerHTML = '';
@@ -571,13 +585,14 @@
     refreshClaimBadge();
     refreshReplyBadge();
     refreshEditBadge();
+    refreshPictureBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits, pictures: loadPictures };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits', 'pictures'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -588,6 +603,7 @@
   $('claimView').onchange = loadClaims;
   $('replyView').onchange = loadReplies;
   $('editView').onchange = loadEdits;
+  $('pictureView').onchange = loadPictures;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -1121,6 +1137,105 @@
   // ---------- business details suggested by owners (admins) ----------
   const EDIT_DECLINE = { wrong_info: 'Doesn\'t look right', not_allowed: 'Not allowed on Gracio', promotion: 'Advertising or promotion', other: 'Other (write a note)' };
   const EDIT_FIELDS = { phone: 'Phone', website: 'Website', about: 'Description', hours: 'Hours' };
+  // ---------- profile pictures (admins only) ----------
+  const PICTURE_REASONS = { not_appropriate: 'Not appropriate', text_or_contact: 'Text, contact details or ads', impersonation: 'Someone else, or a business or brand', unclear: 'Can\'t be made out', other: 'Other (write a note)' };
+  const pictureLinks = async (paths) => {
+    const list = paths.filter(Boolean);
+    if (!list.length) return {};
+    const { data } = await sb.storage.from('profile-photos').createSignedUrls(list, 300).catch(() => ({ data: [] }));
+    return Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+  };
+  const pictureImg = (url, label) => url ? `<img src="${esc(url)}" alt="${esc(label)}" style="width:128px;height:128px;border-radius:64px;object-fit:cover;background:var(--line)">` : `<div class="meta" style="width:128px;height:128px;border-radius:64px;background:var(--line);display:flex;align-items:center;justify-content:center">Initial</div>`;
+  // Deletes files the database says are no longer needed (best effort: they're private either way).
+  const deletePictures = async (paths) => { const list = (paths || []).filter(Boolean); if (list.length) await sb.storage.from('profile-photos').remove(list).catch(() => {}); };
+
+  async function refreshPictureBadge() {
+    if (!isAdmin) return;
+    try {
+      const rows = await rpc('admin_profile_photo_queue', { p_view: 'waiting', p_limit: 200 });
+      const b = $('pictureBadge');
+      b.textContent = rows.length;
+      b.classList.toggle('hidden', !rows.length);
+    } catch {}
+  }
+
+  async function loadPictures() {
+    const view = $('pictureView').value;
+    const list = $('picturesList');
+    $('pictureHelp').textContent = view === 'waiting'
+      ? 'Oldest first. Approve a picture that shows a person, a pet or anything harmless. Decline (with a reason) anything rude, any text, phone numbers, links or ads, someone else, or a business logo. Until you decide, people keep seeing the current picture. A declined picture is deleted and the person gets an Inbox message.'
+      : 'Pictures people see now, newest first. Remove one that breaks the rules (for example after a report): write the reason, which the person sees.';
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_profile_photo_queue', { p_view: view, p_limit: 200 });
+      if (view === 'waiting') refreshPictureBadge();
+      if (!rows.length) { list.innerHTML = `<div class="empty">${view === 'waiting' ? 'No pictures waiting.' : 'No profile pictures yet.'}</div>`; return; }
+      const urls = await pictureLinks(rows.flatMap((r) => [r.path, r.current_path]));
+      list.innerHTML = rows.map((r) => view === 'waiting' ? `<div class="card" data-picture="${esc(r.id)}">
+          <div class="row">
+            <span class="title">${esc(r.public_name || 'Someone')}</span>
+            <span class="meta">joined ${esc(ago(r.account_created))} · sent ${when(r.submitted_at)}</span>
+            ${r.declined_recently ? `<span class="pill warn">${esc(String(r.declined_recently))} declined in 90 days</span>` : ''}
+            ${r.same_file_elsewhere ? `<span class="pill bad">Same picture used by ${esc(String(r.same_file_elsewhere))} other account${r.same_file_elsewhere === 1 ? '' : 's'}</span>` : ''}
+          </div>
+          <div class="row" style="gap:24px;align-items:flex-start;margin:8px 0">
+            <div><div class="meta">New</div>${pictureImg(urls[r.path], 'New picture')}</div>
+            <div><div class="meta">Shown now</div>${pictureImg(urls[r.current_path], 'Current picture')}</div>
+          </div>
+          <label>Note (optional; shown to the person if you decline)</label>
+          <input data-f="note" maxlength="300">
+          <div class="actions">
+            <button class="btn primary" data-approve>Approve</button>
+            <select data-f="code"><option value="">Decline reason…</option>${Object.entries(PICTURE_REASONS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+            <button class="btn danger" data-decline>Decline</button>
+          </div>
+        </div>` : `<div class="card" data-user="${esc(r.user_id)}">
+          <div class="row" style="gap:16px">
+            ${pictureImg(urls[r.path], 'Picture')}
+            <div><div class="title">${esc(r.public_name || 'Someone')}</div><div class="meta">approved ${when(r.decided_at)}</div></div>
+          </div>
+          <div class="actions"><button class="btn danger" data-remove>Remove picture</button></div>
+        </div>`).join('');
+      list.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => decidePicture(b, true));
+      list.querySelectorAll('[data-decline]').forEach((b) => b.onclick = () => decidePicture(b, false));
+      list.querySelectorAll('[data-remove]').forEach((b) => b.onclick = () => removePicture(b));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decidePicture(btn, approve) {
+    const card = btn.closest('.card');
+    const f = (n) => card.querySelector(`[data-f="${n}"]`).value.trim();
+    const args = { p_id: card.dataset.picture, p_approve: approve, p_note: f('note') || null };
+    if (!approve) {
+      if (!f('code')) { toast('Choose a decline reason.'); return; }
+      if (f('code') === 'other' && !f('note')) { toast('Write a note: the person sees it.'); return; }
+      if (!confirm(`Decline this picture (${PICTURE_REASONS[f('code')]})?\n\nThe person is told why, and the picture is deleted.`)) return;
+      args.p_code = f('code');
+    }
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      const r = await rpc('admin_decide_profile_photo', args);
+      await deletePictures(approve ? [r && r.old_path] : [r && r.path]);
+      toast(approve ? 'Approved' : 'Declined');
+      card.remove();
+      if (!$('picturesList').querySelector('.card')) $('picturesList').innerHTML = '<div class="empty">No pictures waiting.</div>';
+      refreshPictureBadge();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
+  }
+
+  async function removePicture(btn) {
+    const card = btn.closest('.card');
+    const reason = prompt('Why is this picture being removed? The person sees this.');
+    if (!reason || !reason.trim()) return;
+    btn.disabled = true;
+    try {
+      const r = await rpc('admin_remove_profile_photo', { p_user_id: card.dataset.user, p_reason: reason.trim() });
+      await deletePictures([r && r.path]);
+      toast('Picture removed');
+      card.remove();
+    } catch (e) { btn.disabled = false; toast(e.message); }
+  }
+
   const DAY_SHORT = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
 
   async function refreshEditBadge() {
