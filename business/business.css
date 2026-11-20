@@ -1,7 +1,5 @@
 /* Gracio for business (on top of /assets/site.css). */
 [hidden] { display: none !important; } /* .btn sets display, which would otherwise show hidden buttons */
-.who { color: var(--ink-soft); font-size: 15px; max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.top nav { align-items: center; }
 .biz h2 { font-size: 28px; margin: 30px 0 8px; }
 .biz label { display: block; font-weight: 600; margin: 14px 0 4px; }
 .biz input, .biz textarea {
@@ -54,3 +52,11 @@ code { overflow-wrap: anywhere; }
 .reply-form { display: grid; gap: 4px; }
 .reply-form .btn { justify-self: start; margin-top: 8px; }
 .reply-form .small { justify-self: end; font-size: 13px; }
+
+/* Who is signed in: a thin bar under the site header. */
+.account { background: var(--ice); border-bottom: 1px solid var(--line); font-size: 15px; color: var(--ink-soft); }
+.account .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.account strong { color: var(--ink); overflow-wrap: anywhere; }
+/* Lists start at the page edge (the reading-page style indents lists). */
+.biz ul.list { padding-left: 0; margin-left: 0; }
+.biz .list .card { padding: 16px 18px; }

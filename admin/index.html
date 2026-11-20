@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-G9GhEN7IRMTMACdev9Bi+FTpDOHpqyQ3KkyteyBIeck='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-nrfD1cssUeVPjARiH9+s3yGFinFjOLzrGJ5sWsFw0cE='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -62,14 +62,16 @@
   .dt { display: flex; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
   .dt input { flex: 1 1 auto; width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; }
   input::-webkit-date-and-time-value { text-align: left; }
-  .reply-review { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* pre-wrap only on the text itself: on the box it would also keep the page code's line breaks as blank lines */
+  .reply-review { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); overflow-wrap: anywhere; }
+  .reply-review .said, .claim-note .said { white-space: pre-wrap; }
   .reply-body { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; }
   .claim-call { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
   .claim-call a.title { display: inline-block; margin-top: 2px; color: var(--ink); }
   .claim-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0; }
   .claim-facts dt { color: var(--muted); }
   .claim-facts dd { margin: 0; overflow-wrap: anywhere; }
-  .claim-note { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .claim-note { margin: 8px 0; overflow-wrap: anywhere; }
   label.check { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; margin: 12px 0 4px; }
   label.check input { width: auto; margin-top: 3px; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
@@ -1113,10 +1115,11 @@
   }
 
   function replyCheck(c) {
-    if (!c || c.ok !== true) return `<span class="pill warn">Not checked automatically${c && c.problem ? ': ' + esc(c.problem) : ''}</span>`;
+    if (!c || c.ok !== true) return `<span class="pill warn">Not checked automatically${c && c.problem ? ': ' + esc(String(c.problem).replace(/^Not checked:\s*/, '')) : ''}</span>`;
     const flags = (c.flags || []).map((f) => `<span class="pill bad">${esc(REPLY_FLAGS[f] || f)}</span>`).join(' ');
     const names = (c.names || []).length ? `<span class="pill warn">Names: ${esc(c.names.join(', '))}</span>` : '';
-    return flags || names ? `${flags} ${names}${c.note ? `<div class="meta">${esc(c.note)}</div>` : ''}` : '<span class="pill">Automatic check: nothing found</span>';
+    const hide = (c.names || []).length ? '<div class="meta">These names are hidden (***) when you approve, as in reviews.</div>' : '';
+    return flags || names ? `${flags} ${names}${c.note ? `<div class="meta">${esc(c.note)}</div>` : ''}${hide}` : '<span class="pill">Automatic check: nothing found</span>';
   }
 
   async function loadReplies() {
@@ -1139,7 +1142,7 @@
           </div>
           <div class="reply-review">
             <div class="meta">${esc(r.reviewer)}'s review · ${esc(String(r.review_service ?? '?'))} of 5</div>
-            <div>${esc(r.review_comment || '(no comment)')}</div>
+            <div class="said">${esc(r.review_comment || '(no comment)')}</div>
           </div>
           <div class="meta">Reply from ${esc(r.owner_name || 'the owner')} · ${esc(r.owner_email || 'no email')} · sent ${when(r.submitted_at)}${r.decided_at ? ' · decided ' + when(r.decided_at) : ''}</div>
           <div class="reply-body">${esc(r.body)}</div>
@@ -1242,7 +1245,7 @@
           <dt>Gracio account</dt><dd>${esc(r.public_name || 'Someone')} · ${esc(r.account_email || 'no email')} · joined ${esc(ago(r.account_created))}</dd>
           <dt>Sent</dt><dd>${when(r.submitted_at)}${r.decided_at ? ' · decided ' + when(r.decided_at) : ''}</dd>
         </dl>
-        ${r.evidence_note ? `<div class="claim-note"><div class="meta">Their note</div><div>${esc(r.evidence_note)}</div></div>` : ''}
+        ${r.evidence_note ? `<div class="claim-note"><div class="meta">Their note</div><div class="said">${esc(r.evidence_note)}</div></div>` : ''}
         ${!open && (r.decision_code || r.decision_note) ? `<div class="meta">${esc(r.decision_code ? (CLAIM_DECLINE[r.decision_code] || r.decision_code) : '')}${r.decision_code && r.decision_note ? ' · ' : ''}${esc(r.decision_note || '')}</div>` : ''}
         ${open ? `<label class="check"><input type="checkbox" data-f="called"> I called the number on the listing and confirmed this person</label>
         <label>Note (optional; for the log)</label>

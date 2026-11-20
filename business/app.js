@@ -31,8 +31,8 @@
   function signedOut() {
     hideAll();
     $('who').textContent = '';
-    show('signOut', false);
-    setStatus('Claim your business and, soon, reply to reviews.');
+    show('account', false);
+    setStatus('Claim your business and reply to your reviews.');
     show('signedOut');
   }
 
@@ -49,7 +49,7 @@
 
   function signedIn(session) {
     $('who').textContent = session.user.email || '';
-    show('signOut');
+    show('account');
     sb.auth.mfa.getAuthenticatorAssuranceLevel().then(function (r) {
       if (r.data && r.data.currentLevel === 'aal2') enter();
       else twoStep();
