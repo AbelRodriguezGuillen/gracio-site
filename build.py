@@ -24,7 +24,8 @@ def head(title, desc, path, robots=None):
 <title>{title}</title>
 <meta name="description" content="{desc}">
 {f'<meta name="robots" content="{robots}">' + chr(10) if robots else ''}<link rel="canonical" href="{SITE}{path}">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
 <meta property="og:type" content="website">
@@ -42,7 +43,7 @@ def top(path):
     current = ' aria-current="page"'  # kept outside the f-string so older Pythons (before 3.12) can run this
     links = ''.join(f'<a href="{h}"{current if h == path else ""}>{label}</a>' for h, label in NAV)
     return f'''<header class="top"><div class="wrap">
-  <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
+  <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
   <nav aria-label="Main">{links}<a class="nav-cta" href="/business/">For business</a></nav>
 </div></header>
 '''
@@ -50,7 +51,7 @@ def top(path):
 
 FOOT = '''<footer><div class="wrap">
   <div class="foot-brand">
-    <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
+    <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
     <p>Service, scored. An independent app made in Bergen County, New Jersey.</p>
   </div>
   <nav aria-label="Gracio"><h2>Gracio</h2><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a></nav>
