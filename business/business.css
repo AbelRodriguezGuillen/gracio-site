@@ -22,7 +22,6 @@ button.link {
 }
 .small { color: var(--ink-soft); font-size: 15px; }
 .error { color: #B3261E; font-weight: 600; min-height: 1em; }
-@media (prefers-color-scheme: dark) { .error { color: #F2B8B5; } }
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .list .card { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
 .list .card strong { flex: 1 1 100%; }
@@ -45,7 +44,6 @@ code { overflow-wrap: anywhere; }
 .reply-state { flex: 1 1 100%; display: grid; gap: 6px; margin-top: 8px; padding-left: 12px; border-left: 2px solid var(--line); }
 .reply-state .pill { justify-self: start; }
 .pill.declined { background: #F9DEDC; }
-@media (prefers-color-scheme: dark) { .pill.declined { background: #601410; color: #F9DEDC; } }
 .reply-form label { margin-top: 4px; }
 .btn:not(.primary) { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
 .reply-state button.link { justify-self: start; }

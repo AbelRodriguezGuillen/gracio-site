@@ -1,66 +1,132 @@
 <!-- title: Gracio: Service, scored. -->
 <!-- description: Gracio rates places on how they treat you, plus the details that matter. Coming soon to the App Store in Bergen County and Manhattan. -->
-<main>
-<section class="wrap hero">
-  <div class="butler">{{butler}}</div>
-  <div>
-    <h1>Service, scored.</h1>
-    <p class="lead">Gracio rates places on how they treat you, plus the details that matter: food, value, cleanliness and wait time.</p>
-    <div class="actions">
-      <span class="soon">Coming soon to the App Store</span>
-      <a class="ghost" href="/business/">For business</a>
+<main class="home">
+
+<!-- Hero: the promise on the left, the app on the right. The five ratings sit faintly behind. -->
+<section class="hero2">
+  <p class="ghost-words" aria-hidden="true">Rude Cold Fine Polite Gracious</p>
+  <div class="wrap hero2-grid">
+    <div class="hero2-copy">
+      <p class="eyebrow"><span class="dot"></span>Coming soon to the App Store</p>
+      <h1>Service, <em>scored.</em></h1>
+      <p class="lead">Gracio rates local places on the one thing other apps blur: how you were treated. Plus the details that matter, like food, value, cleanliness and wait time.</p>
+      <div class="actions">
+        <a class="btn-main" href="#how">See how it works <span aria-hidden="true">→</span></a>
+        <a class="btn-line" href="/business/">For business</a>
+      </div>
+      <p class="trust">No ads · Scores are never for sale · Starting in Bergen County, NJ and Manhattan, NY</p>
     </div>
-    <p class="where">Starting in Bergen County, NJ and Manhattan, NY.</p>
+
+    <figure class="phone" aria-label="The Gracio app showing a business page">
+      <div class="phone-screen">
+        <div class="ps-top"><span class="ps-back" aria-hidden="true">‹</span><span class="ps-title">Nonna Rosa</span><span class="ps-save" aria-hidden="true">♡</span></div>
+        <div class="ps-photo" aria-hidden="true"></div>
+        <div class="ps-body">
+          <p class="ps-kind">Italian · Teaneck</p>
+          <div class="ps-score">
+            <p class="ps-label">Gracio score · how people were treated</p>
+            <p class="ps-big">4.7<small> / 5</small></p>
+            <p class="ps-word">Gracious · 38 reviews</p>
+          </div>
+          <ul class="ps-details">
+            <li><span>Food</span><b style="--w: 92%"></b><em>4.6</em></li>
+            <li><span>Value</span><b style="--w: 78%"></b><em>3.9</em></li>
+            <li><span>Wait time</span><b style="--w: 84%"></b><em>4.2</em></li>
+          </ul>
+          <p class="ps-visits"><span class="tick">✓</span> 12 verified visits in the last 30 days</p>
+        </div>
+      </div>
+      <figcaption class="float-card">
+        <span class="fc-label">Latest review</span>
+        <span class="fc-text">“They remembered my order and asked about my mom.”</span>
+        <span class="fc-ties" aria-label="5 out of 5">5 · Gracious</span>
+      </figcaption>
+    </figure>
   </div>
 </section>
 
-<section class="band alt" aria-labelledby="scale">
+<!-- The scale: five cards, Rude to Gracious. -->
+<section class="band2" id="scale" aria-labelledby="scale-h">
   <div class="wrap">
-    <h2 class="section" id="scale">Five ways to be treated</h2>
-    <p class="intro">Every review starts with one question: how did they treat you? Then you can rate the details that matter for that kind of place.</p>
-    <ul class="ties" aria-label="The five Gracio ratings">
-      <li><b>1</b>Rude</li><li><b>2</b>Cold</li><li><b>3</b>Fine</li><li><b>4</b>Polite</li><li><b>5</b>Gracious</li>
+    <div class="section-head">
+      <div>
+        <p class="kicker">The scale</p>
+        <h2 id="scale-h">Five ways to be treated.</h2>
+      </div>
+      <p class="aside">Every review starts with one question: how did they treat you? The answer is the Gracio score.</p>
+    </div>
+    <ol class="scale">
+      <li class="s1"><span class="num">01</span><h3>Rude</h3><p>Dismissive or disrespectful. You won't be back.</p></li>
+      <li class="s2"><span class="num">02</span><h3>Cold</h3><p>Got what you came for, and no one cared.</p></li>
+      <li class="s3"><span class="num">03</span><h3>Fine</h3><p>Nothing wrong, nothing memorable.</p></li>
+      <li class="s4"><span class="num">04</span><h3>Polite</h3><p>Friendly, attentive, glad you came.</p></li>
+      <li class="s5"><span class="num">05</span><h3>Gracious</h3><p>Went out of their way. You felt looked after.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- How it works: three steps on a line. -->
+<section class="band2 alt" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <p class="kicker">How it works</p>
+    <h2 id="how-h">Three steps, from visit to score.</h2>
+    <ol class="steps">
+      <li><span class="ring" aria-hidden="true"></span><span class="num">01</span><h3>Visit</h3><p>Eat, shop, get a haircut or a repair. Anywhere in Bergen County or Manhattan.</p></li>
+      <li><span class="ring" aria-hidden="true"></span><span class="num">02</span><h3>Rate how you were treated</h3><p>One tap from Rude to Gracious, then the details if you like. Check in at the business to mark it Verified.</p></li>
+      <li><span class="ring" aria-hidden="true"></span><span class="num">03</span><h3>See what it's like now</h3><p>Switch between all time, the last 12 months and the last 30 days, and see who's improving or slipping.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- Why Gracio: headline left, list right. -->
+<section class="band2" aria-labelledby="why-h">
+  <div class="wrap why">
+    <div>
+      <p class="kicker">Why Gracio</p>
+      <h2 id="why-h">Built for the part after “how was the food?”</h2>
+      <p class="aside">Star ratings blend the cooking, the prices and the parking into one number. Gracio keeps how you were treated front and center, and gives every detail its own score.</p>
+    </div>
+    <ul class="why-list">
+      <li><span class="icon" aria-hidden="true">◆</span><div><h3>Treatment first</h3><p>The score is how people were treated. Details like food or wait time are scored on their own.</p></div></li>
+      <li><span class="icon" aria-hidden="true">✓</span><div><h3>Verified visits</h3><p>Reviews checked in at the business, or with a receipt, are marked Verified.</p></div></li>
+      <li><span class="icon" aria-hidden="true">◷</span><div><h3>What it's like now</h3><p>Recent reviews show if a place is getting better or worse, not just how it was years ago.</p></div></li>
+      <li><span class="icon" aria-hidden="true">◎</span><div><h3>A person checks every review</h3><p>Names are hidden automatically and every review is checked before it's posted.</p></div></li>
     </ul>
   </div>
 </section>
 
-<section class="band" aria-labelledby="different">
-  <div class="wrap">
-    <h2 class="section" id="different">What makes Gracio different</h2>
-    <p class="intro">Built for people who care how they're treated, not just what's on the menu.</p>
-    <div class="cards">
-      <div class="card"><h3>Treatment first</h3><p>Other apps blend everything into one star score. Gracio leads with how you were treated, from Rude to Gracious.</p></div>
-      <div class="card"><h3>Every detail</h3><p>Food, value, cleanliness, wait time and more each get their own score, so you can see what a place is good at.</p></div>
-      <div class="card"><h3>What it's like now</h3><p>Switch between all time, the last 12 months and the last 30 days, and see which places are improving or slipping.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="band alt" aria-labelledby="biz">
-  <div class="wrap split">
+<!-- For businesses. -->
+<section class="band2 alt" aria-labelledby="biz-h">
+  <div class="wrap biz-split">
     <div>
-      <h2 class="section" id="biz">For businesses</h2>
-      <p class="intro">Own or run a place on Gracio? Claim it for free, then answer your reviews.</p>
-      <a class="soon" href="/business/">Claim your business</a>
+      <p class="kicker">For businesses</p>
+      <h2 id="biz-h">Your business, answered in your words.</h2>
+      <p class="aside">Claim your business for free, keep your details up to date and reply to your reviews.</p>
+      <a class="btn-main" href="/business/">Claim your business <span aria-hidden="true">→</span></a>
     </div>
     <ul class="checks">
       <li>We confirm it's you with a call to the phone number on your listing.</li>
       <li>Reply to reviews. Every reply is checked by Gracio before it shows in the app.</li>
-      <li>Business accounts use Google sign-in and two-step sign-in, so nobody else can take over your business.</li>
+      <li>Update your phone number, website, description and opening hours.</li>
+      <li>Google sign-in and two-step sign-in, so nobody else can take over your business.</li>
       <li>Claiming is free, and businesses can't pay to change their score.</li>
     </ul>
   </div>
 </section>
 
-<section class="band" aria-labelledby="rules-h">
-  <div class="wrap">
-    <div class="rules">
-      <h2 id="rules-h">Our rules</h2>
-      <ul>
+<!-- Closing: the rules and the mascot. -->
+<section class="band2 closing" aria-labelledby="rules-h">
+  <div class="wrap closing-grid">
+    <div class="closing-butler">{{butler}}</div>
+    <div>
+      <p class="kicker">Our rules</p>
+      <h2 id="rules-h">Good service, said out loud.</h2>
+      <ul class="rules-list">
         <li>Scores are never for sale.</li>
         <li>Businesses can't pay to hide a review.</li>
         <li>Your personal data is never sold.</li>
       </ul>
+      <p class="trust">Coming soon to the App Store. Starting in Bergen County, NJ and Manhattan, NY.</p>
     </div>
   </div>
 </section>

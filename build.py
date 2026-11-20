@@ -3,14 +3,16 @@
 Run `python3 build.py` after editing anything in src/. Each src page starts with two lines:
   <!-- title: Page title -->
   <!-- description: One sentence for search results -->
-`{{butler}}` inserts the mascot drawing (assets/butler.svg).
+`{{butler}}` inserts the mascot (assets/mascot.webp, with a PNG for older browsers).
 """
 import pathlib, re
 
 ROOT = pathlib.Path(__file__).parent
 SITE = 'https://gracioapp.com'
-BUTLER = (ROOT / 'assets' / 'butler.svg').read_text()
-NAV = [('/', 'Home'), ('/support.html', 'Support'), ('/privacy.html', 'Privacy'), ('/terms.html', 'Terms')]
+# The mascot artwork (Abel's final version, Nov 19, 2026), cut out of its paper background, unchanged otherwise.
+BUTLER = ('<picture><source srcset="/assets/mascot.webp" type="image/webp">'
+          '<img src="/assets/mascot.png" width="640" height="899" alt="Gracio\'s mascot, a teal butler with a bow tie and a towel marked G"></picture>')
+NAV = [('/', 'Home'), ('/#how', 'How it works'), ('/support.html', 'Support'), ('/privacy.html', 'Privacy')]
 
 
 def head(title, desc, path, robots=None):
@@ -27,7 +29,7 @@ def head(title, desc, path, robots=None):
 <meta property="og:description" content="{desc}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{SITE}{path}">
-<meta name="theme-color" content="#F5EFE3" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#171214" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
 </head>
@@ -51,12 +53,13 @@ FOOT = '''<footer><div class="wrap">
     <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.svg" alt=""><span>Gracio</span></a>
     <p>Service, scored. An independent app made in Bergen County, New Jersey.</p>
   </div>
-  <nav aria-label="Gracio"><h2>Gracio</h2><a href="/">Home</a><a href="/support.html">Support</a></nav>
+  <nav aria-label="Gracio"><h2>Gracio</h2><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a></nav>
   <nav aria-label="Business"><h2>Business</h2><a href="/business/">Claim your business</a><a href="/business/">Reply to reviews</a></nav>
   <nav aria-label="Legal"><h2>Legal</h2><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a></nav>
   <nav aria-label="Follow"><h2>Follow</h2><a href="https://www.instagram.com/gracioapp">Instagram</a><a href="https://www.tiktok.com/@gracioapp">TikTok</a></nav>
   <div class="foot-small">
     <p>© 2026 Gracio. Business listings from the <a href="https://overturemaps.org">Overture Maps Foundation</a>.</p>
+    <a class="top-link" href="#">Back to top ↑</a>
   </div>
 </div></footer>
 </body>
