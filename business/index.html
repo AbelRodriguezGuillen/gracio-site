@@ -58,6 +58,30 @@
     <p class="small">Choose a business to see its reviews and reply. Every reply is checked by Gracio before it shows in the app.</p>
   </div>
 
+  <div id="detailsBox" hidden>
+    <button id="detailsBack" class="link" type="button">← All your businesses</button>
+    <h2 id="detailsTitle">Business details</h2>
+    <p class="small">Keep your phone number, website, description and hours up to date. Changes show on your business's page in the Gracio app once we approve them, usually within a day. To change the name or address, email <a href="mailto:support@gracioapp.com">support@gracioapp.com</a>.</p>
+    <div id="detailsState" class="reply-state" hidden></div>
+    <div id="detailsForm">
+      <label for="dPhone">Phone number</label>
+      <input id="dPhone" type="tel" autocomplete="off" maxlength="25">
+      <label for="dWebsite">Website</label>
+      <input id="dWebsite" type="url" inputmode="url" autocomplete="off" maxlength="200" placeholder="www.yourbusiness.com">
+      <label for="dAbout">Description</label>
+      <textarea id="dAbout" rows="3" maxlength="300" placeholder="A sentence or two about your business"></textarea>
+      <span class="small count" id="dAboutCount">0 / 300</span>
+      <label class="check"><input id="dHoursOn" type="checkbox"> Show opening hours</label>
+      <fieldset id="dHours" class="hours" hidden>
+        <legend class="sr-only">Opening hours</legend>
+      </fieldset>
+      <label for="dNote" id="dNoteLabel" hidden>Note about your hours (optional)</label>
+      <input id="dNote" maxlength="120" placeholder="For example: Closed on holidays" hidden>
+      <button id="dSend" class="btn primary" type="button">Send changes</button>
+      <p id="dError" class="error" role="alert"></p>
+    </div>
+  </div>
+
   <div id="reviewsBox" hidden>
     <button id="backToHome" class="link" type="button">← All your businesses</button>
     <h2 id="reviewsTitle">Reviews</h2>

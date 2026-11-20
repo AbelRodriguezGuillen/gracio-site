@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-nrfD1cssUeVPjARiH9+s3yGFinFjOLzrGJ5sWsFw0cE='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-FN5wghnABMpYkTSWBEmLnh2Zlgu/L8djE0rg8NsllPo='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -66,6 +66,8 @@
   .reply-review { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); overflow-wrap: anywhere; }
   .reply-review .said, .claim-note .said { white-space: pre-wrap; }
   .reply-body { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; }
+  .edit-diff .was { color: var(--muted); text-decoration: line-through; }
+  .edit-diff .now { font-weight: 600; }
   .claim-call { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
   .claim-call a.title { display: inline-block; margin-top: 2px; color: var(--ink); }
   .claim-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0; }
@@ -129,6 +131,7 @@
     <button data-tab="checkins" class="admin-only hidden">Check-ins<span id="checkinBadge" class="badge hidden"></span></button>
     <button data-tab="claims" class="admin-only hidden">Claims<span id="claimBadge" class="badge hidden"></span></button>
     <button data-tab="replies" class="admin-only hidden">Replies<span id="replyBadge" class="badge hidden"></span></button>
+    <button data-tab="edits" class="admin-only hidden">Details<span id="editBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -289,6 +292,19 @@
     </div>
     <p id="replyHelp" class="meta"></p>
     <div id="repliesList"></div>
+  </section>
+
+  <!-- Business details suggested by owners (admins only) -->
+  <section id="tab-edits" class="hidden">
+    <div class="toolbar">
+      <select id="editView">
+        <option value="open">Waiting changes</option>
+        <option value="decided">Decided changes</option>
+      </select>
+      <button class="btn" data-refresh="edits">Refresh</button>
+    </div>
+    <p id="editHelp" class="meta"></p>
+    <div id="editsList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -480,10 +496,11 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits');
     $('checkinsList').innerHTML = '';
     $('claimsList').innerHTML = '';
     $('repliesList').innerHTML = '';
+    $('editsList').innerHTML = '';
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -553,13 +570,14 @@
     refreshCheckinBadge();
     refreshClaimBadge();
     refreshReplyBadge();
+    refreshEditBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -569,6 +587,7 @@
   $('checkinView').onchange = loadCheckins;
   $('claimView').onchange = loadClaims;
   $('replyView').onchange = loadReplies;
+  $('editView').onchange = loadEdits;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -1097,6 +1116,86 @@
     btn.disabled = true;
     try { await rpc('admin_revoke_checkin', { p_checkin_id: btn.closest('.card').dataset.checkin, p_reason: reason.trim() }); toast('Visit revoked'); loadCheckins(); }
     catch (e) { btn.disabled = false; toast(e.message); }
+  }
+
+  // ---------- business details suggested by owners (admins) ----------
+  const EDIT_DECLINE = { wrong_info: 'Doesn\'t look right', not_allowed: 'Not allowed on Gracio', promotion: 'Advertising or promotion', other: 'Other (write a note)' };
+  const EDIT_FIELDS = { phone: 'Phone', website: 'Website', about: 'Description', hours: 'Hours' };
+  const DAY_SHORT = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+
+  async function refreshEditBadge() {
+    if (!isAdmin) return;
+    try {
+      const rows = await rpc('admin_edit_queue', { p_view: 'open' });
+      const b = $('editBadge');
+      b.textContent = rows.length;
+      b.classList.toggle('hidden', !rows.length);
+    } catch {}
+  }
+
+  function hoursText(h) {
+    if (!h) return '(none)';
+    const days = Object.keys(DAY_SHORT).map((d) => `${DAY_SHORT[d]} ${(h[d] || []).length ? h[d].map((r) => `${r.open}–${r.close}`).join(', ') : 'closed'}`);
+    return days.join(' · ') + (h.note ? ` · Note: ${h.note}` : '');
+  }
+  const fieldText = (k, v) => k === 'hours' ? hoursText(v) : (v === null || v === undefined || v === '' ? '(none)' : String(v));
+
+  async function loadEdits() {
+    const view = $('editView').value;
+    const list = $('editsList');
+    $('editHelp').textContent = view === 'open'
+      ? 'Oldest first. Owners suggest their phone number, website, description and hours. Check that they look right (open the website), then approve to put them on the business\'s page, or decline with a reason.'
+      : 'The last 100 decided changes, newest first.';
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_edit_queue', { p_view: view });
+      const open = view === 'open';
+      if (open) refreshEditBadge();
+      if (!rows.length) { list.innerHTML = `<div class="empty">${open ? 'No changes waiting.' : 'No decided changes yet.'}</div>`; return; }
+      list.innerHTML = rows.map((r) => `<div class="card" data-edit="${esc(r.id)}">
+          <div class="row">
+            <span class="title">${esc(r.place_name)}</span>
+            ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
+            ${open ? '' : `<span class="pill ${r.status === 'approved' ? '' : 'warn'}">${r.status === 'approved' ? 'Approved' : 'Declined'}</span>`}
+          </div>
+          <div class="meta">${esc(r.address || '')} · from ${esc(r.owner_name || 'the owner')} · ${esc(r.owner_email || 'no email')} · sent ${when(r.submitted_at)}${r.decided_at ? ' · decided ' + when(r.decided_at) : ''}</div>
+          <dl class="claim-facts edit-diff">
+            ${Object.keys(r.changes || {}).map((k) => `<dt>${esc(EDIT_FIELDS[k] || k)}</dt><dd><div class="was">Was: ${esc(fieldText(k, (r.previous || {})[k]))}</div><div class="now">New: ${esc(fieldText(k, r.changes[k]))}</div>${k === 'website' && r.changes[k] && /^https?:\/\//i.test(r.changes[k]) ? `<a href="${esc(r.changes[k])}" target="_blank" rel="noopener noreferrer nofollow">Open the website</a>` : ''}</dd>`).join('')}
+          </dl>
+          ${r.ai_check && Object.keys(r.ai_check).length ? `<div class="row">${replyCheck(r.ai_check)}</div>` : ''}
+          ${!open && (r.decision_code || r.decision_note) ? `<div class="meta">${esc(r.decision_code ? (EDIT_DECLINE[r.decision_code] || r.decision_code) : '')}${r.decision_code && r.decision_note ? ' · ' : ''}${esc(r.decision_note || '')}</div>` : ''}
+          ${open ? `<label>Note (optional; for the log)</label>
+          <input data-f="note" maxlength="280">
+          <div class="actions">
+            <button class="btn primary" data-approve>Approve</button>
+            <select data-f="code"><option value="">Decline reason…</option>${Object.entries(EDIT_DECLINE).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
+            <button class="btn danger" data-decline>Decline</button>
+          </div>` : ''}
+        </div>`).join('');
+      list.querySelectorAll('[data-approve]').forEach((b) => b.onclick = () => decideEdit(b, true));
+      list.querySelectorAll('[data-decline]').forEach((b) => b.onclick = () => decideEdit(b, false));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function decideEdit(btn, approve) {
+    const card = btn.closest('.card');
+    const f = (n) => card.querySelector(`[data-f="${n}"]`);
+    const note = f('note').value.trim();
+    const args = { p_edit_id: card.dataset.edit, p_approve: approve, p_code: null, p_note: note || null };
+    if (!approve) {
+      args.p_code = f('code').value;
+      if (!args.p_code) { toast('Choose a decline reason.'); return; }
+      if (args.p_code === 'other' && !note) { toast('Write a note for "Other".'); return; }
+    }
+    if (!confirm(approve ? 'Approve these changes? They show on the business\'s page right away.' : `Decline these changes (${EDIT_DECLINE[args.p_code]})?`)) return;
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      await rpc('admin_decide_edit', args);
+      toast(approve ? 'Approved' : 'Declined');
+      card.remove();
+      if (!$('editsList').querySelector('.card')) $('editsList').innerHTML = '<div class="empty">No changes waiting.</div>';
+      refreshEditBadge();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
   }
 
   // ---------- business replies (admins) ----------

@@ -122,6 +122,10 @@
         open.type = 'button';
         open.onclick = function () { openReviews(b); };
         li.appendChild(open);
+        var details = el('button', 'link', 'Business details');
+        details.type = 'button';
+        details.onclick = function () { openDetails(b); };
+        li.appendChild(details);
         list.appendChild(li);
       });
       show('ownedBox', !!(r.data && r.data.length));
@@ -156,6 +160,131 @@
     });
   }
 
+  // ---------- business details ----------
+  var DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
+  var EDIT_DECLINED = { wrong_info: 'It didn’t look right to us.', not_allowed: 'It isn’t allowed on Gracio.', promotion: 'It was advertising.', other: '' };
+  var FIELD_NAMES = { phone: 'Phone', website: 'Website', about: 'Description', hours: 'Hours' };
+  var detailsPlace = null, detailsReq = null;
+
+  // One row per day: Open / Closed, then from and to.
+  (function buildHours() {
+    var box = $('dHours');
+    DAYS.forEach(function (d) {
+      var row = el('div', 'hours-row');
+      var name = el('span', 'day', d[1]);
+      var closed = el('label', 'closed');
+      var cb = el('input'); cb.type = 'checkbox'; cb.id = 'h-' + d[0] + '-closed';
+      closed.appendChild(cb); closed.appendChild(document.createTextNode(' Closed'));
+      var from = el('input'); from.type = 'time'; from.id = 'h-' + d[0] + '-open'; from.value = '09:00'; from.setAttribute('aria-label', d[1] + ' opens');
+      var to = el('input'); to.type = 'time'; to.id = 'h-' + d[0] + '-close'; to.value = '17:00'; to.setAttribute('aria-label', d[1] + ' closes');
+      var dash = el('span', 'small', 'to');
+      cb.onchange = function () { from.disabled = to.disabled = cb.checked; };
+      [name, closed, from, dash, to].forEach(function (x) { row.appendChild(x); });
+      box.appendChild(row);
+    });
+  })();
+  $('dHoursOn').onchange = function () {
+    var on = $('dHoursOn').checked;
+    show('dHours', on); show('dNoteLabel', on); show('dNote', on);
+  };
+  $('dAbout').oninput = function () { $('dAboutCount').textContent = $('dAbout').value.length + ' / 300'; };
+
+  function openDetails(b) {
+    detailsPlace = b;
+    setStatus('');
+    ['ownedBox', 'claimsBox', 'claimArea'].forEach(function (id) { show(id, false); });
+    $('detailsTitle').textContent = 'Details of ' + b.place_name;
+    $('dError').textContent = '';
+    show('detailsBox');
+    loadDetails();
+    window.scrollTo(0, 0);
+  }
+
+  $('detailsBack').onclick = function () {
+    detailsPlace = null;
+    show('detailsBox', false);
+    show('claimArea');
+    loadMine();
+  };
+
+  function fillHours(h) {
+    $('dHoursOn').checked = !!h;
+    DAYS.forEach(function (d) {
+      var r = h && h[d[0]] && h[d[0]][0];
+      var cb = $('h-' + d[0] + '-closed');
+      cb.checked = !!h && !r;
+      $('h-' + d[0] + '-open').value = r ? r.open : '09:00';
+      $('h-' + d[0] + '-close').value = r ? r.close : '17:00';
+      cb.onchange();
+    });
+    $('dNote').value = (h && h.note) || '';
+    $('dHoursOn').onchange();
+  }
+
+  function loadDetails() {
+    var forPlace = detailsPlace;
+    sb.rpc('business_place_details', { p_place_id: forPlace.place_id }).then(function (r) {
+      if (detailsPlace !== forPlace) return;
+      if (r.error) { $('dError').textContent = r.error.message; return; }
+      var d = (r.data || [])[0] || {};
+      $('dPhone').value = d.phone || '';
+      $('dWebsite').value = d.website || '';
+      $('dAbout').value = d.about || '';
+      $('dAbout').oninput();
+      fillHours(d.hours);
+      detailsReq = crypto.randomUUID ? crypto.randomUUID() : null;
+      var st = $('detailsState');
+      st.textContent = '';
+      if (d.pending_id) {
+        st.appendChild(el('span', 'pill', 'Changes waiting for approval'));
+        st.appendChild(el('p', 'small', 'Waiting: ' + Object.keys(d.pending_changes || {}).map(function (k) { return FIELD_NAMES[k] || k; }).join(', ') + ' · sent ' + day(d.pending_at)));
+        var back = el('button', 'link', 'Take back');
+        back.type = 'button';
+        back.onclick = function () {
+          if (!confirm('Take back these changes before they’re approved?')) return;
+          back.disabled = true;
+          sb.rpc('withdraw_place_edit', { p_edit_id: d.pending_id }).then(function (w) {
+            if (w.error) { back.disabled = false; alert(w.error.message); return; }
+            loadDetails();
+          });
+        };
+        st.appendChild(back);
+      } else if (d.last_status === 'declined') {
+        st.appendChild(el('span', 'pill declined', 'Your last changes weren’t approved'));
+        if (EDIT_DECLINED[d.last_code]) st.appendChild(el('p', 'small', EDIT_DECLINED[d.last_code] + ' You can send new ones.'));
+      } else if (d.last_status === 'approved') {
+        st.appendChild(el('span', 'pill approved', 'Your last changes are live · ' + day(d.last_decided_at)));
+      }
+      show('detailsState', !!st.children.length);
+      show('detailsForm', !d.pending_id);
+    });
+  }
+
+  $('dSend').onclick = function () {
+    var err = $('dError');
+    err.textContent = '';
+    var changes = { phone: $('dPhone').value.trim(), website: $('dWebsite').value.trim(), about: $('dAbout').value.trim() };
+    if ($('dHoursOn').checked) {
+      var h = {};
+      for (var i = 0; i < DAYS.length; i++) {
+        var d = DAYS[i][0];
+        if ($('h-' + d + '-closed').checked) { h[d] = []; continue; }
+        var o = $('h-' + d + '-open').value, c = $('h-' + d + '-close').value;
+        if (!o || !c || o === c) { err.textContent = 'Check the hours for ' + DAYS[i][1] + '.'; return; }
+        h[d] = [{ open: o, close: c }];
+      }
+      if ($('dNote').value.trim()) h.note = $('dNote').value.trim();
+      changes.hours = h;
+    }
+    $('dSend').disabled = true;
+    sb.rpc('submit_place_edit', { p_place_id: detailsPlace.place_id, p_changes: changes, p_request_id: detailsReq }).then(function (r) {
+      $('dSend').disabled = false;
+      if (r.error) { err.textContent = r.error.message; return; }
+      loadDetails();
+      window.scrollTo(0, 0);
+    });
+  };
+
   // ---------- reviews and replies ----------
   var REPLY_DECLINED = { not_respectful: 'It wasn’t respectful.', private_info: 'It shared private details about the customer.', off_topic: 'It didn’t answer the review.', promotion: 'It was advertising.', other: '' };
   var place = null, reviewsShown = 0, PAGE = 10;
@@ -163,6 +292,7 @@
 
   function openReviews(b) {
     place = b;
+    setStatus('');
     ['ownedBox', 'claimsBox', 'claimArea'].forEach(function (id) { show(id, false); });
     $('reviewsTitle').textContent = 'Reviews of ' + b.place_name;
     $('reviews').textContent = '';
