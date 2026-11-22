@@ -247,3 +247,9 @@ footer .top-link { color: var(--ink-soft); font-weight: 500; text-decoration: no
   .band2 { padding: 56px 0; }
   .hero2 { padding-top: 36px; }
 }
+
+/* Open-source credits page */
+.credits { list-style: none; padding: 0; columns: 2 320px; column-gap: 32px; font-size: 14px; line-height: 1.45; }
+.credits li { break-inside: avoid; margin: 0 0 10px; }
+.credits small { color: var(--ink-soft); }
+pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var(--surface); padding: 16px 18px; border-radius: 14px; }

@@ -62,7 +62,7 @@ FOOT = '''<footer><div class="wrap">
   </div>
   <nav aria-label="Gracio"><h2>Gracio</h2><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a></nav>
   <nav aria-label="Business"><h2>Business</h2><a href="/business/">Claim your business</a><a href="/business/">Reply to reviews</a></nav>
-  <nav aria-label="Legal"><h2>Legal</h2><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a></nav>
+  <nav aria-label="Legal"><h2>Legal</h2><a href="/privacy.html">Privacy policy</a><a href="/terms.html">Terms of use</a><a href="/open-source.html">Open-source software</a></nav>
   <nav aria-label="Follow"><h2>Follow</h2><a href="https://www.instagram.com/gracioapp">Instagram</a><a href="https://www.tiktok.com/@gracioapp">TikTok</a></nav>
   <div class="foot-small">
     <p>© 2026 Gracio. Business listings from the <a href="https://overturemaps.org">Overture Maps Foundation</a>.</p>
