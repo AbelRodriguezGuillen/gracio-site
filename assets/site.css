@@ -189,7 +189,7 @@ body > main { flex: 1 0 auto; width: 100%; }
 /* The scale: five cards */
 .scale { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .scale li { position: relative; border-radius: 22px; padding: 22px 20px 24px; min-height: 230px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
-.scale .num { position: absolute; top: 18px; left: 20px; font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; opacity: 0.7; }
+.scale .num { position: absolute; top: 18px; left: 20px; font: 600 13px/1 var(--sans); letter-spacing: 0.08em; opacity: 0.7; }
 .scale h3 { font: 600 34px/1 var(--serif); margin-bottom: 8px; }
 .scale p { margin: 0; font-size: 15px; line-height: 1.45; }
 .scale .s1 { background: #EFE3E1; }
@@ -203,7 +203,7 @@ body > main { flex: 1 0 auto; width: 100%; }
 .steps li { position: relative; padding-top: 34px; }
 .steps li::before { content: ''; position: absolute; top: 8px; left: 0; right: 0; height: 1px; background: var(--line); }
 .ring { position: absolute; top: 0; left: 0; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--teal); background: var(--surface); }
-.steps .num { display: block; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--teal); letter-spacing: 0.12em; margin: 22px 0 14px; }
+.steps .num { display: block; font: 700 13px/1 var(--sans); color: var(--teal); letter-spacing: 0.12em; margin: 22px 0 14px; }
 .steps h3 { font: 600 32px/1.05 var(--serif); margin-bottom: 10px; }
 .steps p { color: var(--ink-soft); margin: 0; max-width: 340px; }
 @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); gap: 32px; } }

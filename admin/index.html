@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-xKM3qab38eFvqmwhYCMWzr47r0GieDPZVLbLql9OTiI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-xKM3qab38eFvqmwhYCMWzr47r0GieDPZVLbLql9OTiI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -28,7 +28,8 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line); }
   .bar { max-width: 860px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-  .logo { font-family: Georgia, serif; font-size: 20px; color: var(--plum); font-weight: 700; letter-spacing: .5px; }
+  @font-face { font-family: 'Cormorant SC'; font-weight: 600; font-display: swap; src: url('/assets/fonts/cormorant-sc-600.woff2') format('woff2'); }
+  .logo { font-family: 'Cormorant SC', Georgia, serif; font-size: 24px; color: var(--plum); font-weight: 600; letter-spacing: .5px; }
   .logo small { font: 600 11px/1 -apple-system, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-left: 6px; }
   .spacer { flex: 1; }
   nav { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
