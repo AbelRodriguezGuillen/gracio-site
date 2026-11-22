@@ -78,6 +78,8 @@ h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: 0.01em; li
   background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; margin: 20px 0;
 }
 .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
+/* Support's contact box: plain text, nothing bold (Nov 22). */
+.contact a { font-weight: 400; }
 
 /* Footer: columns of links on wide screens, stacked on phones. */
 footer { background: var(--surface); border-top: 1px solid var(--line); padding: 44px 0 28px; color: var(--ink-soft); font-size: 15px; }
