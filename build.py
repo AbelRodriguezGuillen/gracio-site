@@ -15,7 +15,7 @@ BIZ_CSS_VERSION = hashlib.sha1((ROOT / 'business/business.css').read_bytes()).he
 
 ROOT = pathlib.Path(__file__).parent
 SITE = 'https://gracioapp.com'
-# The mascot artwork (Abel's final version, updated Nov 21, 2026), cut out of its paper background, unchanged otherwise.
+# The mascot artwork (Abel's final version; recolored Nov 22, 2026 to muted teal with a champagne bow tie, same as the app).
 BUTLER = ('<picture><source srcset="/assets/mascot.webp" type="image/webp">'
           '<img src="/assets/mascot.png" width="566" height="834" alt="Gracio\'s mascot, a teal butler with a bow tie holding a card marked G"></picture>')
 NAV = [('/', 'Home'), ('/#how', 'How it works'), ('/support.html', 'Support'), ('/privacy.html', 'Privacy')]
