@@ -45,13 +45,19 @@ def head(title, desc, path, robots=None):
 
 
 def top(path):
-    """The site header: brand, page links, and the For business button. Also used, as text, by business/index.html."""
+    """The site header: brand, page links and the For business button (on phones, all in a Menu). Also written into business/index.html by this script."""
     current = ' aria-current="page"'  # kept outside the f-string so older Pythons (before 3.12) can run this
     links = ''.join(f'<a href="{h}"{current if h == path else ""}>{label}</a>' for h, label in NAV)
+    biz = ' aria-current="page"' if path == '/business/' else ''
     return f'''<header class="top"><div class="wrap">
   <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
-  <nav aria-label="Main">{links}<a class="nav-cta" href="/business/">For business</a></nav>
+  <nav class="nav-wide" aria-label="Main">{links}<a class="nav-cta" href="/business/"{biz}>For business</a></nav>
+  <details class="nav-menu">
+    <summary aria-label="Menu"><span class="bars" aria-hidden="true"></span>Menu</summary>
+    <nav aria-label="Main menu">{links}<a class="nav-cta" href="/business/"{biz}>For business</a></nav>
+  </details>
 </div></header>
+<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) {{ a.addEventListener('click', function () {{ a.closest('details').open = false; }}); }});</script>
 '''
 
 
@@ -89,5 +95,7 @@ _biz = ROOT / 'business/index.html'
 _html = _biz.read_text()
 _new = re.sub(r'href="/assets/site\.css(\?v=\w+)?"', f'href="/assets/site.css?v={CSS_VERSION}"', _html)
 _new = re.sub(r'href="/business/business\.css(\?v=\w+)?"', f'href="/business/business.css?v={BIZ_CSS_VERSION}"', _new)
+# Its header is the shared one (Nov 23: the phone Menu), with For business marked as the current page.
+_new = re.sub(r'<header class="top">.*?</header>\n', lambda _m: top('/business/'), _new, count=1, flags=re.S)
 if _new != _html:
     _biz.write_text(_new)

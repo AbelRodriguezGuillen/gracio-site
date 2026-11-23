@@ -56,11 +56,28 @@ a:hover { text-decoration-thickness: 2px; }
   color: var(--on-plum); background: var(--plum); border-radius: 999px; padding: 9px 16px; text-decoration: none;
 }
 .top nav a.nav-cta:hover { opacity: 0.9; text-decoration: none; }
-/* Phones: brand and the business button on the first line, the page links below. */
-@media (max-width: 640px) {
-  .top .wrap { padding-top: 8px; padding-bottom: 4px; min-height: 0; }
-  .top nav { width: 100%; justify-content: space-between; gap: 4px 12px; }
-  .top nav a.nav-cta { padding: 8px 14px; }
+/* Phones (Nov 23): the logo and a Menu button; the links and For business open in a panel under the header. */
+.nav-menu { display: none; }
+@media (max-width: 760px) {
+  .top .wrap { min-height: 60px; flex-wrap: nowrap; }
+  .top .nav-wide { display: none; }
+  .nav-menu { display: block; }
+  .nav-menu summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 44px;
+    padding: 0 14px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 600; font-size: 15px; color: var(--ink);
+  }
+  .nav-menu summary::-webkit-details-marker { display: none; }
+  .nav-menu .bars, .nav-menu .bars::before, .nav-menu .bars::after { display: block; width: 16px; height: 2px; background: var(--ink); border-radius: 2px; position: relative; }
+  .nav-menu .bars::before, .nav-menu .bars::after { content: ""; position: absolute; left: 0; }
+  .nav-menu .bars::before { top: -5px; } .nav-menu .bars::after { top: 5px; }
+  .nav-menu[open] .bars { background: transparent; }
+  .nav-menu[open] .bars::before { top: 0; transform: rotate(45deg); } .nav-menu[open] .bars::after { top: 0; transform: rotate(-45deg); }
+  .nav-menu nav {
+    position: absolute; left: 0; right: 0; top: 100%; flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--surface); border-bottom: 1px solid var(--line); padding: 6px 16px 18px; box-shadow: var(--lift);
+  }
+  .top .nav-menu nav a { padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 17px; }
+  .top .nav-menu nav a.nav-cta { margin-top: 14px; border-bottom: 0; text-align: center; padding: 13px 16px; }
 }
 
 h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }

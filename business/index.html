@@ -11,7 +11,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/assets/site.css?v=139da551">
+<link rel="stylesheet" href="/assets/site.css?v=81f1fdd7">
 <link rel="stylesheet" href="/business/business.css?v=43234d82">
 <script src="/admin/vendor/supabase-js-2.118.0.js" defer></script>
 <script src="/business/app.js" defer></script>
@@ -19,8 +19,13 @@
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
-  <nav aria-label="Main"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/" aria-current="page">For business</a></nav>
+  <nav class="nav-wide" aria-label="Main"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/" aria-current="page">For business</a></nav>
+  <details class="nav-menu">
+    <summary aria-label="Menu"><span class="bars" aria-hidden="true"></span>Menu</summary>
+    <nav aria-label="Main menu"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/" aria-current="page">For business</a></nav>
+  </details>
 </div></header>
+<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) { a.addEventListener('click', function () { a.closest('details').open = false; }); });</script>
 <div class="account" id="account" hidden><div class="wrap"><span>Signed in as <strong id="who"></strong></span><button id="signOut" class="link" type="button">Sign out</button></div></div>
 
 <main class="wrap doc biz">

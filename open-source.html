@@ -14,13 +14,18 @@
 <meta property="og:url" content="https://gracioapp.com/open-source.html">
 <meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=139da551">
+<link rel="stylesheet" href="/assets/site.css?v=81f1fdd7">
 </head>
 <body>
 <header class="top"><div class="wrap">
   <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
-  <nav aria-label="Main"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
+  <nav class="nav-wide" aria-label="Main"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
+  <details class="nav-menu">
+    <summary aria-label="Menu"><span class="bars" aria-hidden="true"></span>Menu</summary>
+    <nav aria-label="Main menu"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
+  </details>
 </div></header>
+<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) { a.addEventListener('click', function () { a.closest('details').open = false; }); });</script>
 <main class="wrap doc">
 <h1>Open-source software</h1>
 <p>Gracio is built with open-source software. Thank you to everyone who makes it. Below is each library in the Gracio app, its version, its license and its copyright notice. The full text of each license comes with the library and is available from its project page or on <a href="https://www.npmjs.com">npmjs.com</a>.</p>
