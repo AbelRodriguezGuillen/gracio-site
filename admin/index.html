@@ -134,6 +134,7 @@
     <button data-tab="replies" class="admin-only hidden">Replies<span id="replyBadge" class="badge hidden"></span></button>
     <button data-tab="edits" class="admin-only hidden">Details<span id="editBadge" class="badge hidden"></span></button>
     <button data-tab="pictures" class="admin-only hidden">Pictures<span id="pictureBadge" class="badge hidden"></span></button>
+    <button data-tab="feedback" class="admin-only hidden">Feedback<span id="feedbackBadge" class="badge hidden"></span></button>
     <button data-tab="words">Words</button>
     <button data-tab="photos">Photos</button>
     <button data-tab="metrics">Metrics</button>
@@ -320,6 +321,29 @@
     </div>
     <p id="pictureHelp" class="meta"></p>
     <div id="picturesList"></div>
+  </section>
+
+  <!-- Feedback from the app's Menu (admins only) -->
+  <section id="tab-feedback" class="hidden">
+    <div class="toolbar">
+      <select id="feedbackStatus">
+        <option value="new">New</option>
+        <option value="planned">Planned</option>
+        <option value="done">Done</option>
+        <option value="wont_do">Won't do</option>
+        <option value="all">All</option>
+      </select>
+      <select id="feedbackKind">
+        <option value="">All kinds</option>
+        <option value="idea">Ideas</option>
+        <option value="problem">Something's broken</option>
+        <option value="question">Questions</option>
+        <option value="other">Other</option>
+      </select>
+      <button class="btn" data-refresh="feedback">Refresh</button>
+    </div>
+    <p class="meta">Newest first. Reply sends an Inbox message (signed-in people only). Marking an idea Done tells its sender once: "You asked for this, and it's live". Done or Won't do deletes the screenshot.</p>
+    <div id="feedbackList"></div>
   </section>
 
   <!-- All accounts (admins only) -->
@@ -511,11 +535,12 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits', 'tab-pictures');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits', 'tab-pictures', 'tab-feedback');
     $('checkinsList').innerHTML = '';
     $('claimsList').innerHTML = '';
     $('repliesList').innerHTML = '';
     $('editsList').innerHTML = '';
+    $('feedbackList').innerHTML = '';
     isAdmin = false;
     document.querySelectorAll('.admin-only').forEach((el) => el.classList.add('hidden'));
     $('who').textContent = '';
@@ -587,13 +612,14 @@
     refreshReplyBadge();
     refreshEditBadge();
     refreshPictureBadge();
+    refreshFeedbackBadge();
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits, pictures: loadPictures };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits, pictures: loadPictures, feedback: loadFeedback };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits', 'pictures'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits', 'pictures', 'feedback'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -605,6 +631,8 @@
   $('replyView').onchange = loadReplies;
   $('editView').onchange = loadEdits;
   $('pictureView').onchange = loadPictures;
+  $('feedbackStatus').onchange = loadFeedback;
+  $('feedbackKind').onchange = loadFeedback;
   $('suggestionStatus').onchange = loadSuggestions;
   $('synAdd').onclick = saveSynonym;
   $('wordAdd').onclick = addWord;
@@ -1234,6 +1262,85 @@
       await deletePictures([r && r.path]);
       toast('Picture removed');
       card.remove();
+    } catch (e) { btn.disabled = false; toast(e.message); }
+  }
+
+  // ---------- feedback (admins only) ----------
+  const FEEDBACK_KIND = { idea: 'Idea', problem: 'Something\'s broken', question: 'Question', other: 'Other' };
+  const FEEDBACK_STATUS = { new: 'New', planned: 'Planned', done: 'Done', wont_do: 'Won\'t do' };
+
+  async function refreshFeedbackBadge() {
+    if (!isAdmin) return;
+    try {
+      const n = await rpc('admin_feedback_new_count');
+      const b = $('feedbackBadge');
+      b.textContent = n;
+      b.classList.toggle('hidden', !n);
+    } catch {}
+  }
+
+  async function loadFeedback() {
+    const list = $('feedbackList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_feedback', { p_status: $('feedbackStatus').value, p_kind: $('feedbackKind').value || null, p_limit: 200 });
+      refreshFeedbackBadge();
+      if (!rows.length) { list.innerHTML = '<div class="empty">Nothing here.</div>'; return; }
+      const paths = rows.map((r) => r.screenshot_path).filter(Boolean);
+      let urls = {};
+      if (paths.length) {
+        const { data } = await sb.storage.from('feedback-screenshots').createSignedUrls(paths, 300).catch(() => ({ data: [] }));
+        urls = Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+      }
+      list.innerHTML = rows.map((r) => `<div class="card" data-feedback="${esc(r.id)}">
+          <div class="row">
+            <span class="pill">${esc(FEEDBACK_KIND[r.kind] || r.kind)}</span>
+            <span class="title">${r.user_id ? esc(r.public_name || 'Someone') : 'Signed-out visitor'}</span>
+            <span class="meta">${when(r.created_at)}${r.app_version ? ' · app ' + esc(r.app_version) : ''}${r.system ? ' · ' + esc(r.system) : ''}${r.screen ? ' · from ' + esc(r.screen) : ''}</span>
+            <span class="pill${r.status === 'new' ? ' warn' : ''}">${esc(FEEDBACK_STATUS[r.status] || r.status)}</span>
+          </div>
+          <p style="white-space:pre-wrap;margin:8px 0">${esc(r.message)}</p>
+          ${urls[r.screenshot_path] ? `<a href="${esc(urls[r.screenshot_path])}" target="_blank" rel="noopener"><img src="${esc(urls[r.screenshot_path])}" alt="Screenshot" style="max-width:220px;max-height:400px;border-radius:8px;border:1px solid var(--line)"></a>` : ''}
+          ${r.reply ? `<p class="meta">Replied ${when(r.replied_at)}: ${esc(r.reply)}</p>` : ''}
+          <label>Staff note (only staff see it)</label>
+          <input data-f="note" maxlength="500" value="${esc(r.staff_note || '')}">
+          ${r.can_reply ? `<label>Reply (goes to their Inbox)</label><textarea data-f="reply" maxlength="1000" rows="3"></textarea>` : ''}
+          <div class="actions">
+            ${r.can_reply ? '<button class="btn primary" data-reply>Send reply</button>' : ''}
+            <button class="btn" data-set="planned">Planned</button>
+            <button class="btn" data-set="done">Done</button>
+            <button class="btn" data-set="wont_do">Won't do</button>
+            <button class="btn" data-set="">Save note</button>
+          </div>
+        </div>`).join('');
+      list.querySelectorAll('[data-reply]').forEach((b) => b.onclick = () => replyFeedback(b));
+      list.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => setFeedback(b, b.dataset.set || null));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  async function setFeedback(btn, status) {
+    const card = btn.closest('.card');
+    const note = card.querySelector('[data-f="note"]').value.trim();
+    if (status === 'done' && !confirm('Mark as Done?\n\nIf this is an idea from a signed-in person, they get an Inbox message saying it\'s live.')) return;
+    card.querySelectorAll('button').forEach((b) => b.disabled = true);
+    try {
+      const r = await rpc('admin_feedback_set', { p_id: card.dataset.feedback, p_status: status, p_note: note });
+      if (r && r.screenshot_path) await sb.storage.from('feedback-screenshots').remove([r.screenshot_path]).catch(() => {});
+      toast(status ? FEEDBACK_STATUS[status] : 'Note saved');
+      loadFeedback();
+    } catch (e) { card.querySelectorAll('button').forEach((b) => b.disabled = false); toast(e.message); }
+  }
+
+  async function replyFeedback(btn) {
+    const card = btn.closest('.card');
+    const text = card.querySelector('[data-f="reply"]').value.trim();
+    if (!text) { toast('Write a reply first.'); return; }
+    if (!confirm('Send this reply to their Inbox?')) return;
+    btn.disabled = true;
+    try {
+      await rpc('admin_feedback_reply', { p_id: card.dataset.feedback, p_text: text });
+      toast('Reply sent');
+      loadFeedback();
     } catch (e) { btn.disabled = false; toast(e.message); }
   }
 

@@ -96,6 +96,6 @@ _html = _biz.read_text()
 _new = re.sub(r'href="/assets/site\.css(\?v=\w+)?"', f'href="/assets/site.css?v={CSS_VERSION}"', _html)
 _new = re.sub(r'href="/business/business\.css(\?v=\w+)?"', f'href="/business/business.css?v={BIZ_CSS_VERSION}"', _new)
 # Its header is the shared one (Nov 23: the phone Menu), with For business marked as the current page.
-_new = re.sub(r'<header class="top">.*?</header>\n', lambda _m: top('/business/'), _new, count=1, flags=re.S)
+_new = re.sub(r'<header class="top">.*?</header>\n(?:<script>document\.querySelectorAll\(\'\.nav-menu[^\n]*</script>\n)*', lambda _m: top('/business/'), _new, count=1, flags=re.S)
 if _new != _html:
     _biz.write_text(_new)
