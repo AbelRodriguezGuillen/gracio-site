@@ -272,3 +272,39 @@ footer .top-link { color: var(--ink-soft); font-weight: 500; text-decoration: no
 .credits li { break-inside: avoid; margin: 0 0 10px; }
 .credits small { color: var(--ink-soft); }
 pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var(--surface); padding: 16px 18px; border-radius: 14px; }
+
+/* ---------- A shared business (src/p.html) ---------- */
+.biz .score-card { background: var(--plum); color: #FBF6EA; border-radius: 20px; padding: 18px 20px; margin: 0 0 16px; }
+.biz .score-card p { margin: 0; color: inherit; }
+.biz .score-label { font: 700 12px/1.4 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: rgba(251, 246, 234, 0.78) !important; }
+.biz .score-row { display: flex; align-items: center; gap: 16px; margin: 8px 0 !important; }
+.biz .score-row[hidden] { display: none; }
+.biz .score-big { font: 600 56px/0.9 var(--serif); }
+.biz .score-of { font: 600 16px/1 var(--sans); color: rgba(251, 246, 234, 0.78); }
+.biz .score-word { font: 600 22px/1.2 var(--serif); color: var(--gold) !important; margin-top: 4px !important; }
+.biz .score-meta { font-size: 15px; color: rgba(251, 246, 234, 0.78) !important; }
+.biz .ties { display: inline-flex; gap: 3px; align-items: center; }
+.biz .biz-card { background: var(--surface); border-radius: 18px; padding: 14px 18px; box-shadow: var(--lift); margin: 0 0 16px; }
+.biz .card-label { font: 700 12px/1.4 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 4px; }
+.biz .details { list-style: none; padding: 0; margin: 0; }
+.biz .details li { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+.biz .biz-actions { display: grid; gap: 10px; margin: 8px 0 32px; }
+.biz .biz-actions a.button { text-align: center; }
+.biz a.button-line { background: transparent; color: var(--plum); border: 1.5px solid var(--plum); }
+.biz .directions { justify-self: center; padding: 10px; }
+.biz .reviews h2 { font-size: 30px; margin: 0 0 12px; }
+.biz .search input { width: 100%; box-sizing: border-box; height: 46px; border-radius: 23px; border: 1px solid var(--line); background: var(--surface); padding: 0 18px; font: 16px var(--sans); color: var(--ink); }
+.biz .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 6px; }
+.biz .pickers label { display: grid; gap: 4px; font: 700 12px/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.biz .pickers select { height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; font: 16px var(--sans); color: var(--ink); text-transform: none; letter-spacing: 0; }
+.biz .review-count { color: var(--ink-soft); font-size: 15px; margin: 8px 0; }
+.biz .review-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.biz .review-list li { background: var(--surface); border-radius: 16px; padding: 14px 16px; box-shadow: var(--lift); }
+.biz .review-top { display: flex; justify-content: space-between; gap: 10px; }
+.biz .review-top span { color: var(--ink-soft); font-size: 14px; }
+.biz .review-rate { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 4px 0; }
+.biz .review-list p { margin: 6px 0 0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.biz .review-list mark { background: var(--teal-soft); color: var(--ink); border-radius: 4px; padding: 0 2px; }
+.biz .review-list .helpful { color: var(--ink-soft); font-size: 14px; }
+.biz .more { display: block; margin: 14px auto 0; min-height: 44px; background: none; border: none; color: var(--teal); font: 600 16px var(--sans); cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
