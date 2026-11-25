@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <title>Gracio: Service, scored.</title>
 <meta name="description" content="Gracio rates places on how they treat you, plus the details that matter. Coming soon to the App Store in Bergen County and Manhattan.">
 <link rel="canonical" href="https://gracioapp.com/">
@@ -14,7 +15,7 @@
 <meta property="og:url" content="https://gracioapp.com/">
 <meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=31d4c1a8">
+<link rel="stylesheet" href="/assets/site.css?v=76007916">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -25,7 +26,7 @@
     <nav aria-label="Main menu"><a href="/" aria-current="page">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
   </details>
 </div></header>
-<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) { a.addEventListener('click', function () { a.closest('details').open = false; }); });</script>
+<script src="/assets/menu.js?v=b8f7ded8" defer></script>
 <main class="home">
 
 <!-- Hero: the promise on the left, the app on the right. The five ratings sit faintly behind. -->
@@ -55,9 +56,9 @@
             <p class="ps-word">Gracious · 38 reviews</p>
           </div>
           <ul class="ps-details">
-            <li><span>Food</span><b style="--w: 92%"></b><em>4.6</em></li>
-            <li><span>Value</span><b style="--w: 78%"></b><em>3.9</em></li>
-            <li><span>Wait time</span><b style="--w: 84%"></b><em>4.2</em></li>
+            <li><span>Food</span><b class="w92"></b><em>4.6</em></li>
+            <li><span>Value</span><b class="w78"></b><em>3.9</em></li>
+            <li><span>Wait time</span><b class="w84"></b><em>4.2</em></li>
           </ul>
           <p class="ps-visits"><span class="tick">✓</span> 12 verified visits in the last 30 days</p>
         </div>

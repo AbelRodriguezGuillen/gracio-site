@@ -12,6 +12,15 @@ ROOT = pathlib.Path(__file__).parent
 # Version tag on the style sheets, so browsers load the new styles as soon as they change.
 CSS_VERSION = hashlib.sha1((ROOT / 'assets/site.css').read_bytes()).hexdigest()[:8]
 BIZ_CSS_VERSION = hashlib.sha1((ROOT / 'business/business.css').read_bytes()).hexdigest()[:8]
+# Version tags on the page scripts too (Nov 25: every script is a file, so pages can forbid inline scripts).
+def js_version(name):
+    return hashlib.sha1((ROOT / f'assets/{name}.js').read_bytes()).hexdigest()[:8]
+
+# Every page's security policy (Nov 25): its own files only, plus Gracio's Supabase project for the pages that
+# load a shared business or collection. No inline scripts or styles anywhere, so injected markup can't run.
+SUPABASE = 'https://afjoucvqxxtwfpbpweph.supabase.co'
+CSP = (f"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; "
+       f"connect-src {SUPABASE}; base-uri 'none'; form-action 'none'")
 
 ROOT = pathlib.Path(__file__).parent
 SITE = 'https://gracioapp.com'
@@ -27,6 +36,7 @@ def head(title, desc, path, robots=None):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{CSP}">
 <title>{title}</title>
 <meta name="description" content="{desc}">
 {f'<meta name="robots" content="{robots}">' + chr(10) if robots else ''}<link rel="canonical" href="{SITE}{path}">
@@ -57,7 +67,7 @@ def top(path):
     <nav aria-label="Main menu">{links}<a class="nav-cta" href="/business/"{biz}>For business</a></nav>
   </details>
 </div></header>
-<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) {{ a.addEventListener('click', function () {{ a.closest('details').open = false; }}); }});</script>
+<script src="/assets/menu.js?v={js_version('menu')}" defer></script>
 '''
 
 
@@ -85,6 +95,7 @@ for src in sorted((ROOT / 'src').glob('*.html')):
     desc = re.search(r'<!-- description: (.*?) -->', text).group(1)
     robots = re.search(r'<!-- robots: (.*?) -->', text)  # e.g. noindex for shared-collection pages
     body = re.sub(r'<!-- (title|description|robots): .*? -->\n?', '', text).replace('{{butler}}', BUTLER)
+    body = re.sub(r'\{\{js:(\w+)\}\}', lambda m: js_version(m.group(1)), body)
     path = '/' if src.name == 'index.html' else f'/{src.name}'
     (ROOT / src.name).write_text(head(title, desc, path, robots and robots.group(1)) + top(path) + body + FOOT)
     print('built', src.name)
@@ -96,6 +107,6 @@ _html = _biz.read_text()
 _new = re.sub(r'href="/assets/site\.css(\?v=\w+)?"', f'href="/assets/site.css?v={CSS_VERSION}"', _html)
 _new = re.sub(r'href="/business/business\.css(\?v=\w+)?"', f'href="/business/business.css?v={BIZ_CSS_VERSION}"', _new)
 # Its header is the shared one (Nov 23: the phone Menu), with For business marked as the current page.
-_new = re.sub(r'<header class="top">.*?</header>\n(?:<script>document\.querySelectorAll\(\'\.nav-menu[^\n]*</script>\n)*', lambda _m: top('/business/'), _new, count=1, flags=re.S)
+_new = re.sub(r'<header class="top">.*?</header>\n(?:<script>document\.querySelectorAll\(\'\.nav-menu[^\n]*</script>\n|<script src="/assets/menu\.js[^\n]*</script>\n)*', lambda _m: top('/business/'), _new, count=1, flags=re.S)
 if _new != _html:
     _biz.write_text(_new)

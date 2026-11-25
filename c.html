@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <title>A shared collection · Gracio</title>
 <meta name="description" content="A collection of places shared from Gracio.">
 <meta name="robots" content="noindex, nofollow">
@@ -15,7 +16,7 @@
 <meta property="og:url" content="https://gracioapp.com/c.html">
 <meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=31d4c1a8">
+<link rel="stylesheet" href="/assets/site.css?v=76007916">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -26,7 +27,7 @@
     <nav aria-label="Main menu"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
   </details>
 </div></header>
-<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) { a.addEventListener('click', function () { a.closest('details').open = false; }); });</script>
+<script src="/assets/menu.js?v=b8f7ded8" defer></script>
 <main class="wrap doc shared">
 <h1 id="name">A shared collection</h1>
 <p class="date" id="meta" aria-live="polite">Opening the collection…</p>
@@ -38,55 +39,7 @@
   <p id="open" hidden>Have Gracio? <a id="openLink" href="#">Open this collection in the app</a>.</p>
 </div>
 </main>
-<script>
-// Shows one public Gracio collection: its name and businesses, nothing about who made it. The id is after
-// "#", so it never reaches this website's server. Read through shared_collection() with the public key
-// (the same one the app and admin page use); private, deleted or unknown collections return nothing.
-(function () {
-  var URL_ = 'https://afjoucvqxxtwfpbpweph.supabase.co';
-  var KEY = 'sb_publishable_77n-uOCZ_p2ZI6JreiJylQ_1Mk4igKn';
-  var LABELS = { restaurant: 'Restaurant', cafe: 'Café & bakery', bar: 'Bar', fastfood: 'Fast food', grocery: 'Grocery', retail: 'Shop',
-    salon: 'Salon & barber', spa: 'Nails & spa', gym: 'Gym', medical: 'Doctor & dentist', pharmacy: 'Pharmacy', auto: 'Auto repair',
-    home: 'Home services', hotel: 'Hotel', bank: 'Bank', pet: 'Pet care', cleaners: 'Dry cleaner', pro: 'Professional service',
-    learning: 'Classes & child care', misc: 'Other' };
-  var $ = function (id) { return document.getElementById(id); };
-  var id = decodeURIComponent(location.hash.slice(1));
-  var gone = function () {
-    $('name').textContent = 'Not available';
-    $('meta').textContent = 'This collection isn’t available. It may have been made private or deleted.';
-  };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return gone();
-  fetch(URL_ + '/rest/v1/rpc/shared_collection', {
-    method: 'POST',
-    headers: { apikey: KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ p_id: id })
-  })
-    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function (c) {
-      if (!c || typeof c.name !== 'string') return gone();
-      var places = Array.isArray(c.places) ? c.places : [];
-      document.title = c.name + ' · Gracio';
-      $('name').textContent = c.name;
-      $('meta').textContent = 'A shared collection · ' + places.length + (places.length === 1 ? ' place' : ' places');
-      var list = $('places');
-      places.forEach(function (p) {
-        var li = document.createElement('li');
-        var b = document.createElement('strong');
-        b.textContent = p.name;
-        var s = document.createElement('span');
-        s.textContent = [LABELS[p.category] || '', p.town || ''].filter(Boolean).join(' · ');
-        li.appendChild(b); li.appendChild(s);
-        list.appendChild(li);
-      });
-      list.hidden = places.length === 0;
-      $('openLink').href = 'gracio://shared/' + id;
-      $('open').hidden = false;
-    })
-    .catch(function () {
-      $('meta').textContent = 'Couldn’t open this collection. Check your connection and reload the page.';
-    });
-})();
-</script>
+<script src="/assets/c.js?v=98ade3b7"></script>
 <footer><div class="wrap">
   <div class="foot-brand">
     <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>

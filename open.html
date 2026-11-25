@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; base-uri 'none'; form-action 'none'">
 <title>Open in Gracio</title>
 <meta name="description" content="Opens a message from Gracio in the app.">
 <meta name="robots" content="noindex, nofollow">
@@ -15,7 +16,7 @@
 <meta property="og:url" content="https://gracioapp.com/open.html">
 <meta name="theme-color" content="#FFFCF6">
 <link rel="preload" href="/assets/fonts/cormorant-sc-600.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=31d4c1a8">
+<link rel="stylesheet" href="/assets/site.css?v=76007916">
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -26,7 +27,7 @@
     <nav aria-label="Main menu"><a href="/">Home</a><a href="/#how">How it works</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a><a class="nav-cta" href="/business/">For business</a></nav>
   </details>
 </div></header>
-<script>document.querySelectorAll('.nav-menu nav a').forEach(function (a) { a.addEventListener('click', function () { a.closest('details').open = false; }); });</script>
+<script src="/assets/menu.js?v=b8f7ded8" defer></script>
 <main class="wrap doc shared">
 <h1>Open in Gracio</h1>
 <p class="date" id="meta" aria-live="polite">Opening Gracio…</p>
@@ -37,19 +38,7 @@
   <p>Don't have Gracio yet? It's coming soon to the App Store in Bergen County and Manhattan.</p>
 </div>
 </main>
-<script>
-// The link in a Gracio email: https://gracioapp.com/open.html#n=<message id>. The id is after "#", so it
-// never reaches this website's server, and it's only a random id: the app opens it only for the account
-// it was sent to (the Inbox shows your own messages). Anything that isn't an id just opens the Inbox.
-(function () {
-  var m = /^#n=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(location.hash);
-  var url = 'gracio://inbox' + (m ? '?open=' + m[1].toLowerCase() : '');
-  document.getElementById('openLink').href = url;
-  // Try once on its own; Safari may ask "Open in Gracio?" first. The button works either way.
-  setTimeout(function () { location.href = url; }, 300);
-  setTimeout(function () { document.getElementById('meta').textContent = 'Tap the button to open the app.'; }, 1500);
-})();
-</script>
+<script src="/assets/open.js?v=88431293"></script>
 <footer><div class="wrap">
   <div class="foot-brand">
     <a class="brand" href="/" aria-label="Gracio home"><img src="/assets/mark.png" alt=""><span>Gracio</span></a>
