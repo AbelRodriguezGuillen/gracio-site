@@ -8,14 +8,14 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-BgZlqf4GRgHnxCZcKvjqj8TRCITJycai9JUoE/c/vnM='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-toXX+tvMwUQntytg+uNJCNKV9aCNOge4yoe/bVk6kjw='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
     --plum: #391021; --plum-soft: #EFE3E1; --teal: #296E6A; --teal-soft: #DCEBE6;
     --ink: #2A1A2E; --ink-soft: #54464F; --muted: #6E6371; --line: #E4DAC8;
     --bg: #F5EFE3; --card: #FFFCF6; --good: #2A7148; --bad: #B3261E; --mustard: #D9C383;
-    --radius: 12px;
+    --radius: 28px; /* cards: corner 28 with 16 padding, like the app (Nov 25) */
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -37,7 +37,7 @@
   nav button.on { color: var(--plum); border-bottom-color: var(--plum); }
   .badge { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--plum); color: #fff; font-size: 12px; text-align: center; margin-left: 4px; }
   main { max-width: 860px; margin: 0 auto; padding: 16px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .title { font-weight: 700; font-size: 16px; }
   .meta { color: var(--muted); font-size: 13px; }
@@ -81,7 +81,7 @@
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
   .error { color: var(--bad); margin-top: 10px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
   .tile .v { font-size: 26px; font-weight: 700; color: var(--plum); line-height: 1.1; }
   .tile .k { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .tile .s { font-size: 12px; color: var(--muted); }
@@ -110,6 +110,29 @@
   .acct .actions { margin-top: 6px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
+  /* Apple-style corners where the browser can draw them (CSS corner-shape); a squircle needs a larger radius to
+     look like Apple's continuous corner (an approximation). Others keep round corners. */
+  @supports (corner-shape: squircle) {
+    .card, .tile, button.btn, .bulkbar, .toast, input, select, textarea { corner-shape: squircle; }
+    :root { --radius: 42px; }
+    button.btn, .toast, select, input, textarea { border-radius: 15px; }
+    .dt input { border-radius: 0; }
+  }
+  /* Nov 25: Changes, Switches, bulk actions */
+  .diff { font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); border-radius: 8px; padding: 6px 10px; margin-top: 6px; overflow-x: auto; }
+  .diff .o { color: var(--bad); text-decoration: line-through; }
+  .diff .n { color: var(--good); }
+  .sw { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .sw .state { font-weight: 700; }
+  .sw .state.on { color: var(--good); }
+  .sw .state.off { color: var(--bad); }
+  .pick { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; margin-bottom: 4px; }
+  .pick input { width: 18px; height: 18px; accent-color: var(--plum); }
+  .bulkbar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--card); border: 1.5px solid var(--plum); border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); max-width: calc(100% - 32px); }
+  .details dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 0; }
+  .details dt { color: var(--muted); }
+  .details dd { margin: 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -140,6 +163,8 @@
     <button data-tab="metrics">Metrics</button>
     <button data-tab="emails">Emails &amp; push</button>
     <button data-tab="security" class="admin-only hidden">Security<span id="securityBadge" class="badge hidden"></span></button>
+    <button data-tab="changes">Changes</button>
+    <button data-tab="switches" class="admin-only hidden">Switches</button>
   </nav>
 </header>
 
@@ -214,6 +239,7 @@
         <option value="hidden">Hidden</option>
       </select>
       <button class="btn" data-refresh="comments">Refresh</button>
+      <button class="btn" id="exportComments">Export CSV</button>
     </div>
     <div id="commentsList"></div>
     <div class="actions"><button id="moreComments" class="btn hidden">Load more</button></div>
@@ -357,6 +383,7 @@
         <option value="reviews">Most reviews</option>
       </select>
       <button class="btn" data-refresh="users">Refresh</button>
+      <button class="btn" id="exportUsers">Export CSV</button>
     </div>
     <p class="meta">Active = signed in during that period. Emails are private: only admins see them.</p>
     <div id="usersList"></div>
@@ -445,6 +472,44 @@
   </section>
 
   <!-- Metrics -->
+  <!-- Changes: every staff change, newest first (Nov 25) -->
+  <section id="tab-changes" class="hidden">
+    <div class="toolbar">
+      <input id="changeSearch" placeholder="Search a person, business, staff member or reason" style="flex:1;min-width:180px;width:auto">
+      <select id="changeStaff"><option value="">All staff</option></select>
+      <select id="changeKind">
+        <option value="">All kinds</option>
+        <option value="reviews,review_entries,review_photos">Reviews and photos</option>
+        <option value="reports">Reports</option>
+        <option value="profiles,account_suspensions,user_roles,checkin_blocks,profile_photos">Accounts</option>
+        <option value="places,place_submissions,place_edits,business_claims,business_members,business_replies">Businesses</option>
+        <option value="checkins">Check-ins</option>
+        <option value="app_switches">Switches</option>
+        <option value="feedback,blocked_words,search_synonyms">Feedback and words</option>
+      </select>
+      <select id="changeDays">
+        <option value="1">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="365">Last 12 months</option>
+        <option value="3650">All</option>
+      </select>
+      <button class="btn" data-refresh="changes">Refresh</button>
+    </div>
+    <p class="meta">Every change a moderator or admin made to someone else's things, recorded by the database (it can't be edited or deleted). Moderators see reviews, photos, reports and suggested businesses; admins see everything.</p>
+    <div id="changesList"></div>
+    <div class="actions"><button id="moreChanges" class="btn hidden">Load more</button></div>
+  </section>
+
+  <!-- Switches: turn a feature off without sending an update (admins, Nov 25) -->
+  <section id="tab-switches" class="hidden">
+    <div class="toolbar">
+      <span class="meta">Turn a feature off for everyone without sending an update. The app checks when it opens and when it comes back to the front; the database also refuses the action while it's off, so older app versions can't get around it. Each change needs a reason and shows in Changes.</span>
+      <button class="btn" data-refresh="switches">Refresh</button>
+    </div>
+    <div id="switchesList"></div>
+  </section>
+
   <section id="tab-metrics" class="hidden">
     <div class="toolbar">
       <select id="metricDays">
@@ -459,6 +524,7 @@
   </section>
 </main>
 
+<div id="bulkBar" class="bulkbar hidden"></div>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -535,7 +601,10 @@
 
   $('signOut').onclick = async () => {
     await sb.auth.signOut();
-    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits', 'tab-pictures', 'tab-feedback');
+    hide('tabs', 'signOut', 'notMod', 'twoStep', 'tab-reviews', 'tab-reports', 'tab-comments', 'tab-declined', 'tab-accounts', 'tab-users', 'tab-suggestions', 'tab-words', 'tab-photos', 'tab-metrics', 'tab-emails', 'tab-security', 'tab-checkins', 'tab-claims', 'tab-replies', 'tab-edits', 'tab-pictures', 'tab-feedback', 'tab-changes', 'tab-switches');
+    $('changesList').innerHTML = '';
+    $('switchesList').innerHTML = '';
+    clearBulk();
     $('checkinsList').innerHTML = '';
     $('claimsList').innerHTML = '';
     $('repliesList').innerHTML = '';
@@ -616,10 +685,11 @@
   }
 
   // ---------- tabs ----------
-  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits, pictures: loadPictures, feedback: loadFeedback };
+  const loaders = { reviews: loadReviews, reports: loadReports, comments: () => loadComments(true), declined: () => loadDeclined(true), users: () => loadUsers(true), accounts: loadAccounts, suggestions: loadSuggestions, words: loadWords, photos: loadPhotosTab, metrics: loadMetrics, emails: loadEmails, security: loadSecurity, checkins: loadCheckins, claims: loadClaims, replies: loadReplies, edits: loadEdits, pictures: loadPictures, feedback: loadFeedback, changes: () => loadChanges(true), switches: loadSwitches };
   function openTab(name) {
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits', 'pictures', 'feedback'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    ['reviews', 'reports', 'comments', 'declined', 'users', 'accounts', 'suggestions', 'words', 'photos', 'metrics', 'emails', 'security', 'checkins', 'claims', 'replies', 'edits', 'pictures', 'feedback', 'changes', 'switches'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== name));
+    clearBulk();
     loaders[name]();
   }
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => openTab(b.dataset.tab));
@@ -646,6 +716,13 @@
   $('userSort').onchange = () => loadUsers(true);
   let searchTimer = null;
   $('userSearch').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadUsers(true), 350); };
+  $('changeSearch').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadChanges(true), 350); };
+  $('changeStaff').onchange = () => loadChanges(true);
+  $('changeKind').onchange = () => loadChanges(true);
+  $('changeDays').onchange = () => loadChanges(true);
+  $('moreChanges').onclick = () => loadChanges(false);
+  $('exportUsers').onclick = exportUsers;
+  $('exportComments').onclick = exportComments;
 
   async function refreshReportBadge() {
     try {
@@ -716,6 +793,7 @@
         </div>`;
       }).join('');
       list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideReview(b));
+      bulkify(list, BULK.pending);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
@@ -779,6 +857,7 @@
         </div>`).join('');
       list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => decideReport(b));
       list.querySelectorAll('[data-suspend]').forEach((b) => b.onclick = () => suspend(b, loadReports));
+      if (status === 'open') bulkify(list, BULK.reports);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
@@ -848,6 +927,7 @@
       list.querySelectorAll('[data-act]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => toggleReview(b); });
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadComments(true)); });
       showVotes(rows.map((r) => r.review_id));
+      bulkify(list, BULK.approved);
       commentsCursor = rows.length ? rows[rows.length - 1].created_at : commentsCursor;
       $('moreComments').classList.toggle('hidden', rows.length < 25);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
@@ -1693,7 +1773,7 @@
       list.innerHTML = '<div class="empty">Loading…</div>';
       rpc('admin_account_stats').then((st) => {
         const tile = (v, k, s = '') => `<div class="tile"><div class="v">${fmt(v)}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-        $('userStats').innerHTML = tile(st.total, 'Accounts') + tile(st.active_7d, 'Active', 'last 7 days') + tile(st.active_30d, 'Active', 'last 30 days')
+        $('userStats').innerHTML = tile(st.total, 'Accounts') + (st.active_1d !== undefined ? tile(st.active_1d, 'Active', 'today') : '') + tile(st.active_7d, 'Active', 'last 7 days') + tile(st.active_30d, 'Active', 'last 30 days')
           + tile(st.new_7d, 'New', 'last 7 days') + tile(st.new_30d, 'New', 'last 30 days') + tile(st.with_reviews, 'Have posted a review') + tile(st.suspended, 'Suspended');
       }).catch((e) => { $('userStats').innerHTML = `<div class="card error">${esc(e.message)}</div>`; });
     }
@@ -1712,8 +1792,12 @@
             <div class="meta">${esc(r.email || 'no email')}${r.sign_in ? ' · ' + esc(r.sign_in) : ''}</div>
             <div class="meta">Joined ${ago(r.joined)} · last signed in ${ago(r.last_sign_in)} · ${fmt(r.reviews)} review${r.reviews === 1 ? '' : 's'} · ${fmt(r.photos)} photo${r.photos === 1 ? '' : 's'}</div>
           </div>
-          <div class="actions"><button class="btn" data-names>Name history</button><button class="btn" data-history>History</button>${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
+          <div class="actions">
+            <select data-role aria-label="Role for ${esc(r.display_name)}">${['member', 'moderator', 'admin'].map((x) => `<option value="${x}"${x === r.role ? ' selected' : ''}>${x[0].toUpperCase() + x.slice(1)}</option>`).join('')}</select>
+            <button class="btn" data-details>Details</button><button class="btn" data-names>Name history</button><button class="btn" data-history>History</button>${r.role === 'member' && !r.suspended ? '<button class="btn" data-suspend>Suspend</button>' : ''}</div>
         </div>`).join(''));
+      list.querySelectorAll('[data-role]:not([data-bound])').forEach((s) => { s.dataset.bound = '1'; s.dataset.was = s.value; s.onchange = () => changeRole(s); });
+      list.querySelectorAll('[data-details]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => accountDetails(b); });
       list.querySelectorAll('[data-suspend]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => suspend(b, () => loadUsers(true)); });
       list.querySelectorAll('[data-history]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => accountHistory(b); });
       list.querySelectorAll('[data-names]:not([data-bound])').forEach((b) => { b.dataset.bound = '1'; b.onclick = () => nameHistory(b); });
@@ -1912,6 +1996,7 @@
     box.querySelector('[data-back]').onclick = () => { showPhotoGroups(); $('morePhotos').classList.toggle('hidden', photosOffset % 60 !== 0 || photosOffset === 0); };
     box.querySelector('[data-del-review]').onclick = (e) => deleteReview(reviewId, e.currentTarget, () => { openReview = null; loadPhotos(true); });
     box.querySelectorAll('[data-del-photo]').forEach((b) => b.onclick = () => deletePhoto(b.closest('figure').dataset.photoId, b, () => loadPhotos(true)));
+    if (isAdmin) bulkify(box, BULK.photos);
   }
 
   let leftovers = [];
@@ -1996,6 +2081,7 @@
       list.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => (b.dataset.act === 'merge' ? mergeSuggestion(b) : decideSuggestion(b)));
       list.querySelectorAll('[data-reviews]').forEach((a) => a.onclick = (ev) => { ev.preventDefault(); showSuggestionReviews(a.dataset.reviews); });
       list.querySelectorAll('[data-dupes]').forEach((a) => a.onclick = (ev) => { ev.preventDefault(); showSuggestionDupes(a.dataset.dupes); });
+      if ($('suggestionStatus').value === 'pending') bulkify(list, BULK.suggestions);
     } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
@@ -2121,6 +2207,302 @@
   }
 
   // ---------- metrics ----------
+  // ---------- Changes (Nov 25): every staff change, recorded by the database ----------
+  const AREA_NAMES = {
+    reviews: 'a review', review_entries: 'review words', review_photos: 'a photo', places: 'a business', place_submissions: 'a suggested business',
+    account_suspensions: 'a suspension', user_roles: 'a role', reports: 'a report', profile_photos: 'a profile picture', business_claims: 'a business claim',
+    business_members: 'a business owner', business_replies: 'a business reply', place_edits: 'business details', checkins: 'a check-in',
+    checkin_blocks: 'a receipt pause', feedback: 'feedback', blocked_words: 'a masked word', search_synonyms: 'a search synonym',
+    profiles: 'an account', app_switches: 'a switch',
+  };
+  const OP_WORDS = { insert: 'added', update: 'changed', delete: 'removed', view: 'opened account details for' };
+  let changesOffset = 0;
+  const showValue = (v) => v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+  function changeDiff(r) {
+    const keys = [...new Set([...Object.keys(r.before || {}), ...Object.keys(r.after || {})])];
+    if (!keys.length) return '';
+    return `<div class="diff">${keys.map((k) => {
+      const b = r.before?.[k], a = r.after?.[k];
+      if (r.op === 'insert') return `${esc(k)}: <span class="n">${esc(showValue(a))}</span>`;
+      if (r.op === 'delete') return `${esc(k)}: <span class="o">${esc(showValue(b))}</span>`;
+      return `${esc(k)}: <span class="o">${esc(showValue(b))}</span> → <span class="n">${esc(showValue(a))}</span>`;
+    }).join('<br>')}</div>`;
+  }
+  async function loadChanges(reset) {
+    const list = $('changesList');
+    if (reset) {
+      changesOffset = 0;
+      list.innerHTML = '<div class="empty">Loading…</div>';
+      rpc('admin_change_staff').then((rows) => {
+        const pick = $('changeStaff'), was = pick.value;
+        pick.innerHTML = '<option value="">All staff</option>' + rows.map((r) => `<option value="${esc(r.actor_id)}">${esc(r.actor_name)}</option>`).join('');
+        pick.value = rows.some((r) => r.actor_id === was) ? was : '';
+      }).catch(() => {});
+    }
+    try {
+      const rows = await rpc('admin_changes', { p_area: $('changeKind').value, p_actor: $('changeStaff').value || null, p_search: $('changeSearch').value,
+        p_days: Number($('changeDays').value), p_limit: 50, p_offset: changesOffset });
+      if (reset) list.innerHTML = rows.length ? `<p class="meta">${fmt(rows[0].total)} change${rows[0].total === 1 ? '' : 's'}</p>` : '<div class="empty">No changes in this period.</div>';
+      list.insertAdjacentHTML('beforeend', rows.map((r) => {
+        const what = r.op === 'view' ? esc(r.person || 'an account')
+          : esc(AREA_NAMES[r.area] || r.area) + (r.area === 'app_switches' || r.area === 'blocked_words' || r.area === 'search_synonyms' ? ` <span class="pill">${esc(r.target_id)}</span>` : '');
+        const about = [r.place ? 'at ' + esc(r.place) : '', r.person && r.op !== 'view' ? 'by ' + esc(r.person) : ''].filter(Boolean).join(' · ');
+        return `<div class="card">
+          <div class="row"><span><b>${esc(r.actor_name)}</b> ${OP_WORDS[r.op] || esc(r.op)} ${what}</span><span class="spacer"></span><span class="meta">${when(r.at)}</span></div>
+          ${about ? `<div class="meta">${about}</div>` : ''}
+          ${r.reason ? `<div class="meta">Reason: “${esc(r.reason)}”</div>` : ''}
+          ${changeDiff(r)}
+        </div>`;
+      }).join(''));
+      changesOffset += rows.length;
+      $('moreChanges').classList.toggle('hidden', rows.length < 50);
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // ---------- Switches (admins, Nov 25) ----------
+  async function loadSwitches() {
+    const list = $('switchesList');
+    list.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const rows = await rpc('admin_switches');
+      list.innerHTML = rows.map((r) => `
+        <div class="card sw" data-key="${esc(r.key)}">
+          <div><b>${esc(r.label)}</b> <span class="state ${r.is_on ? 'on' : 'off'}">${r.is_on ? 'On' : 'Off'}</span>
+            <div class="meta">${esc(r.description)}</div>
+            <div class="meta">Last changed ${when(r.updated_at)}</div></div>
+          <button class="btn ${r.is_on ? 'danger' : 'primary'}" data-turn="${r.is_on ? 'off' : 'on'}">Turn ${r.is_on ? 'off' : 'on'}</button>
+        </div>`).join('');
+      list.querySelectorAll('[data-turn]').forEach((b) => b.onclick = () => turnSwitch(b));
+    } catch (e) { list.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+  async function turnSwitch(btn) {
+    const card = btn.closest('.card');
+    const on = btn.dataset.turn === 'on';
+    const label = card.querySelector('b').textContent;
+    if (!confirm(on ? `Turn ${label} back on for everyone?` : `Turn ${label} off for everyone?\n\nThe app hides it and says it's paused. Anything already posted stays.`)) return;
+    const reason = prompt('Why? (Shown in Changes.)', '');
+    if (reason === null) return;
+    btn.disabled = true;
+    try {
+      await rpc('admin_set_switch', { p_key: card.dataset.key, p_on: on, p_reason: reason });
+      toast(`${label}: ${on ? 'on' : 'off'}`);
+      loadSwitches();
+    } catch (e) { toast(e.message); btn.disabled = false; }
+  }
+
+  // ---------- roles and account details (admins, Nov 25) ----------
+  async function changeRole(sel) {
+    const card = sel.closest('.card');
+    const name = card.querySelector('.title').textContent;
+    const role = sel.value;
+    const undo = () => { sel.value = sel.dataset.was; };
+    if (!confirm(`Make ${name} ${role === 'member' ? 'a member (no staff powers)' : 'a' + (role === 'admin' ? 'n admin' : ' moderator')}?${role !== 'member' ? '\n\nThey must set up two-step sign-in on this page before they can use it.' : ''}`)) return undo();
+    const reason = prompt('Why? (Shown in Changes.)', '');
+    if (reason === null) return undo();
+    sel.disabled = true;
+    try {
+      await rpc('admin_set_role', { p_user: card.dataset.account, p_role: role, p_reason: reason });
+      toast('Role changed');
+      loadUsers(true);
+    } catch (e) { toast(e.message); undo(); sel.disabled = false; }
+  }
+  async function accountDetails(btn) {
+    const card = btn.closest('.card');
+    const old = card.querySelector('.details');
+    if (old) { old.remove(); return; }
+    const reason = prompt('Why are you opening this account? (Recorded in Changes.)', '');
+    if (reason === null) return;
+    btn.disabled = true;
+    try {
+      const d = await rpc('admin_account_details', { p_user: card.dataset.account, p_reason: reason });
+      const yes = (v) => v ? 'on' : 'off';
+      const rows = [
+        ['Name', d.name], ['About', d.about || '—'], ['Email', d.email || '—'], ['Signs in with', d.sign_in || '—'], ['Joined', when(d.joined)],
+        ['Last signed in', when(d.last_sign_in) || 'never'], ['Role', d.role],
+        ['Reviews', `${fmt(d.reviews_published)} published, ${fmt(d.reviews_waiting)} waiting, ${fmt(d.reviews_hidden)} hidden`],
+        ['Photos', fmt(d.photos)], ['Profile picture', d.profile_photo || 'none'],
+        ['Collections', `${fmt(d.collections)} (${fmt(d.collections_public)} public)`],
+        ['Reports', `${fmt(d.reports_made)} made, ${fmt(d.reports_against)} against`], ['Suggested businesses', fmt(d.suggestions)],
+        ['Verified visits', fmt(d.checkins)], ['Businesses they manage', fmt(d.businesses)], ['Feedback sent', fmt(d.feedback)], ['Phones with notifications', fmt(d.push_devices)],
+        ['Settings', d.settings ? `public profile ${yes(d.settings.profile_public)}, public visits ${yes(d.settings.visits_public)}, review emails ${yes(d.settings.email_review_updates)}, review notifications ${yes(d.settings.push_review_updates)}, account notifications ${yes(d.settings.push_account_updates)}` : '—'],
+        ['Suspended', d.suspended ? (d.suspended_until ? 'until ' + when(d.suspended_until) : 'until lifted') : 'no'],
+      ];
+      card.insertAdjacentHTML('beforeend', `<div class="details" style="grid-column:1/-1"><div class="row"><b>Account details</b><span class="pill">read-only</span></div>
+        <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`);
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
+  }
+
+  // ---------- CSV export (Nov 25) ----------
+  // A cell that starts with = + - @ could run as a formula in a spreadsheet: it gets a leading apostrophe.
+  const csvCell = (v) => {
+    let t = v === null || v === undefined ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  function downloadCsv(name, header, rows) {
+    const text = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  async function exportUsers() {
+    const btn = $('exportUsers'); btn.disabled = true;
+    try {
+      let all = [], offset = 0;
+      for (;;) {
+        const rows = await rpc('admin_accounts', { p_search: $('userSearch').value, p_sort: $('userSort').value, p_limit: 200, p_offset: offset });
+        all = all.concat(rows); offset += rows.length;
+        if (rows.length < 200 || all.length >= 20000) break;
+      }
+      downloadCsv('gracio-accounts', ['Name', 'Email', 'Signs in with', 'Joined', 'Last signed in', 'Reviews', 'Photos', 'Open reports', 'Role', 'Suspended', 'Suspended until'],
+        all.map((r) => [r.display_name, r.email, r.sign_in, r.joined, r.last_sign_in, r.reviews, r.photos, r.open_reports, r.role, r.suspended ? 'yes' : 'no', r.suspended_until]));
+      toast(`Exported ${fmt(all.length)} accounts`);
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
+  }
+  async function exportComments() {
+    const btn = $('exportComments'); btn.disabled = true;
+    try {
+      let all = [], before = null;
+      for (;;) {
+        const rows = await rpc('admin_comments', { p_filter: $('commentFilter').value, p_limit: 100, p_before: before });
+        all = all.concat(rows);
+        if (rows.length < 100 || all.length >= 20000) break;
+        before = rows[rows.length - 1].created_at;
+      }
+      downloadCsv('gracio-reviews', ['Business', 'Author', 'Posted', 'Bow ties', 'Words', 'Update', 'Verified', 'Status', 'Open reports'],
+        all.map((r) => [r.place_name, r.author_name, r.created_at, r.service, r.comment, r.is_update ? 'yes' : 'no', r.verified ? 'yes' : 'no', r.review_status, r.open_reports]));
+      toast(`Exported ${fmt(all.length)} reviews`);
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
+  }
+
+  // ---------- bulk actions with a preview (Nov 25) ----------
+  // Tick several items, pick an action, see what will change, confirm. Each item then goes through the same
+  // one-at-a-time function as its own button (same rules, same messages to people, each one in Changes).
+  const BULK_MAX = 100;
+  const bulk = { box: null, cfg: null, ids: new Set() };
+  function clearBulk() { bulk.box = null; bulk.cfg = null; bulk.ids.clear(); hide('bulkBar'); }
+  function bulkify(box, cfg) {
+    if (bulk.box !== box) bulk.ids.clear(); // "Load more" keeps what's ticked
+    bulk.box = box; bulk.cfg = cfg;
+    const items = [...box.querySelectorAll(cfg.item)];
+    items.forEach((el) => {
+      const id = cfg.id(el);
+      if (!id || el.querySelector(':scope > .pick')) return;
+      el.insertAdjacentHTML('afterbegin', `<label class="pick"><input type="checkbox" data-pick="${esc(id)}"${bulk.ids.has(id) ? ' checked' : ''}> Select</label>`);
+    });
+    const tools = box.querySelector(':scope > .bulk-tools');
+    if (!tools && items.length > 1) box.insertAdjacentHTML('afterbegin', '<div class="toolbar bulk-tools"><button class="btn" data-pick-all>Select all on this page</button></div>');
+    box.querySelectorAll('[data-pick]').forEach((c) => c.onchange = () => { c.checked ? bulk.ids.add(c.dataset.pick) : bulk.ids.delete(c.dataset.pick); drawBulkBar(); });
+    const all = box.querySelector('[data-pick-all]');
+    if (all) all.onclick = () => {
+      const boxes = [...box.querySelectorAll('[data-pick]')];
+      const on = boxes.some((c) => !c.checked);
+      boxes.forEach((c) => { c.checked = on; on ? bulk.ids.add(c.dataset.pick) : bulk.ids.delete(c.dataset.pick); });
+      drawBulkBar();
+    };
+    drawBulkBar();
+  }
+  function drawBulkBar() {
+    const bar = $('bulkBar');
+    if (!bulk.cfg || !bulk.ids.size) { hide('bulkBar'); return; }
+    const n = bulk.ids.size;
+    bar.innerHTML = `<b>${n} selected</b><span class="meta">${esc(bulk.cfg.where)}${n > BULK_MAX ? ` · at most ${BULK_MAX} at a time` : ''}</span>`
+      + bulk.cfg.actions.filter((a) => !a.adminOnly || isAdmin).map((a, i) => `<button class="btn ${a.danger ? 'danger' : a.primary ? 'primary' : ''}" data-bulk="${i}">${esc(a.label)}</button>`).join('')
+      + '<button class="btn" data-bulk-clear>Clear</button>';
+    show('bulkBar');
+    bar.querySelector('[data-bulk-clear]').onclick = () => { bulk.box?.querySelectorAll('[data-pick]').forEach((c) => c.checked = false); bulk.ids.clear(); drawBulkBar(); };
+    const shown = bulk.cfg.actions.filter((a) => !a.adminOnly || isAdmin);
+    bar.querySelectorAll('[data-bulk]').forEach((b) => b.onclick = () => runBulk(shown[Number(b.dataset.bulk)]));
+  }
+  async function runBulk(action) {
+    const ids = [...bulk.ids];
+    if (ids.length > BULK_MAX) { toast(`Pick at most ${BULK_MAX}.`); return; }
+    const cfg = bulk.cfg;
+    let preview = '';
+    try { preview = await action.preview(ids); } catch (e) { toast(e.message); return; }
+    const extra = action.ask ? prompt(action.ask, '') : '';
+    if (extra === null) return;
+    const word = action.confirmWord ? `${action.confirmWord} ${ids.length}` : null;
+    const msg = `${action.label}: ${ids.length} item${ids.length === 1 ? '' : 's'} (${cfg.where})\n\nWhat will change (nothing has changed yet):\n${preview}`;
+    if (word) {
+      const typed = prompt(`${msg}\n\nType ${word} to confirm.`, '');
+      if (typed === null) return;
+      if (typed.trim().toUpperCase() !== word) { toast('Not confirmed. Nothing changed.'); return; }
+    } else if (!confirm(msg)) return;
+    $('bulkBar').querySelectorAll('button').forEach((b) => b.disabled = true);
+    let done = 0; const failed = [];
+    for (const id of ids) {
+      try { await action.run(id, extra || ''); done++; } catch (e) { failed.push(e.message); }
+    }
+    toast(failed.length ? `${done} done, ${failed.length} failed: ${failed[0]}` : `${done} done`);
+    clearBulk();
+    cfg.reload();
+    refreshReportBadge();
+  }
+  const reviewPreview = async (ids, verb) => {
+    const p = await rpc('admin_bulk_preview', { p_kind: 'reviews', p_ids: ids });
+    return [`• ${fmt(p.found)} review${p.found === 1 ? '' : 's'} ${verb}`,
+      ...p.places.map((x) => `• ${x.name}: ${fmt(x.now)} → ${fmt(x.after)} published reviews`),
+      verb === 'deleted' ? `• ${fmt(p.votes)} Helpful vote${p.votes === 1 ? '' : 's'}, ${fmt(p.photos)} photo${p.photos === 1 ? '' : 's'} and ${fmt(p.replies)} business repl${p.replies === 1 ? 'y' : 'ies'} removed with them` : '',
+      verb === 'deleted' ? '• Each author gets a message with the reason' : '• Each author gets a message with support@gracioapp.com for appeals',
+    ].filter(Boolean).join('\n');
+  };
+  const listPreview = (box, ids, line) => ids.map((id) => {
+    const el = box.querySelector(`[data-pick="${CSS.escape(id)}"]`)?.closest('.card, figure');
+    return '• ' + (el ? line(el) : id);
+  }).slice(0, 12).join('\n') + (ids.length > 12 ? `\n• …and ${ids.length - 12} more` : '');
+  const titleOf = (el) => (el.querySelector('.title')?.textContent || '').trim() + (el.querySelector('.meta') ? ' · ' + el.querySelector('.meta').textContent.trim().split('·')[0] : '');
+  const BULK = {
+    pending: {
+      where: 'Pending reviews', item: '.card[data-id]', id: (el) => el.dataset.id, reload: () => loadReviews(),
+      actions: [
+        { label: 'Approve', primary: true, preview: async (ids) => listPreview($('reviewsList'), ids, titleOf) + '\n\nEach one is posted (photos included) and its writer gets a message.',
+          run: async (id) => { const removed = await rpc('admin_decide_review', { p_entry_id: id, p_decision: 'approve', p_use_original: false, p_remove_photos: [] }); if (removed?.length) await sb.storage.from('review-photos').remove(removed).catch(() => {}); } },
+        { label: 'Decline', danger: true, ask: 'Optional reason, shown to every writer (e.g. "Please describe your visit"):',
+          preview: async (ids) => listPreview($('reviewsList'), ids, titleOf) + '\n\nNone of them are posted; each writer gets a message.',
+          run: async (id, reason) => { await rpc('admin_decide_review', { p_entry_id: id, p_decision: 'decline', p_use_original: false, p_remove_photos: [], p_reason: reason }); } },
+      ],
+    },
+    reports: {
+      where: 'Open reports', item: '.card[data-id]', id: (el) => el.dataset.type + ':' + el.dataset.id, reload: () => loadReports(),
+      actions: [
+        { label: 'Dismiss', preview: async (ids) => listPreview($('reportsList'), ids, (el) => (el.querySelector('.title')?.textContent || '').trim()) + '\n\nEveryone who reported them gets a message saying they don\'t break the rules. Authors aren\'t told.',
+          run: async (key) => { const [type, id] = key.split(':'); await rpc('admin_resolve_reports', { p_target_type: type, p_target_id: id, p_decision: 'dismiss', p_hide: false, p_note: 'Bulk dismiss' }); } },
+      ],
+    },
+    approved: {
+      where: 'Approved reviews', item: '.card[data-review]', id: (el) => el.dataset.review, reload: () => loadComments(true),
+      actions: [
+        { label: 'Hide', ask: 'Optional note for the log:', preview: (ids) => reviewPreview(ids, 'hidden'),
+          run: async (id, note) => { await rpc('admin_set_review_status', { p_review_id: id, p_status: 'hidden', p_note: note }); } },
+        { label: 'Delete', danger: true, adminOnly: true, confirmWord: 'DELETE', ask: 'Reason, shown to every author (leave empty for "it broke our rules"):',
+          preview: (ids) => reviewPreview(ids, 'deleted'),
+          run: async (id, reason) => { const paths = await rpc('admin_delete_review', { p_review_id: id, p_reason: reason }); await removeFiles(paths); } },
+      ],
+    },
+    suggestions: {
+      where: 'Suggested businesses', item: '.card[data-id]', id: (el) => el.dataset.id, reload: () => loadSuggestions(),
+      actions: [
+        { label: 'Decline', danger: true, ask: 'Optional reason, shown to each person who suggested one (e.g. "It’s already listed"):',
+          preview: async (ids) => listPreview($('suggestionsList'), ids, (el) => (el.querySelector('.title')?.textContent || '').trim()) + '\n\nNone are added; each person who suggested one gets a message.',
+          run: async (id, reason) => { await rpc('admin_decide_suggestion', { p_id: id, p_decision: 'decline', p_reason: reason }); } },
+      ],
+    },
+    photos: {
+      where: 'Photos of this review', item: 'figure[data-photo-id]', id: (el) => el.dataset.photoId, reload: () => loadPhotos(true),
+      actions: [
+        { label: 'Delete photos', danger: true, adminOnly: true, confirmWord: 'DELETE', ask: 'Reason, shown to the author (leave empty for "it broke our rules"):',
+          preview: async (ids) => { const p = await rpc('admin_bulk_preview', { p_kind: 'photos', p_ids: ids }); return `• ${fmt(p.found)} photo${p.found === 1 ? '' : 's'} deleted from ${fmt(p.reviews)} review${p.reviews === 1 ? '' : 's'}\n• This can't be undone`; },
+          run: async (id, reason) => { const path = await rpc('admin_delete_photo', { p_photo_id: id, p_reason: reason }); await removeFiles(path ? [path] : []); } },
+      ],
+    },
+  };
+
   async function loadMetrics() {
     const body = $('metricsBody');
     body.innerHTML = '<div class="empty">Loading…</div>';

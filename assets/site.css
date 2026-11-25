@@ -20,6 +20,8 @@
   --teal-soft: #DCEBE6;
   --gold: #D9C383;      /* champagne gold: ornament only, never text */
   --lift: 0 4px 10px rgba(42, 26, 46, 0.10); /* soft shadow under cards */
+  /* Cards: corner 28 with 16 padding, the same as the app (src/theme.ts radius.card, Nov 25). */
+  --card-radius: 28px;
   --serif: 'Cormorant SC', Georgia, 'Times New Roman', serif;
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color-scheme: light;
@@ -92,7 +94,7 @@ h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: 0.01em; li
 .doc ul { padding-left: 22px; }
 .doc li + li { margin-top: 4px; }
 .box {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; margin: 20px 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); padding: 24px; margin: 20px 0;
 }
 .box p:first-child { margin-top: 0; } .box p:last-child { margin-bottom: 0; }
 /* Support's contact box: plain text, nothing bold (Nov 22). */
@@ -116,7 +118,7 @@ footer .foot-small p { margin: 0; }
 
 /* Shared collection page (c.html) */
 .shared .places { list-style: none; padding: 0; margin: 0 0 24px; display: grid; gap: 10px; }
-.shared .places li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 2px; }
+.shared .places li { background: var(--surface); border: 1px solid var(--line); border-radius: var(--card-radius); padding: 16px; display: grid; gap: 2px; }
 .shared .places span { color: var(--ink-soft); font-size: 15px; }
 
 /* The "Open in Gracio" button on open.html (links in emails). */
@@ -207,7 +209,7 @@ body > main { flex: 1 0 auto; width: 100%; }
 
 /* The scale: five cards */
 .scale { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.scale li { position: relative; border-radius: 22px; padding: 22px 20px 24px; min-height: 230px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.scale li { position: relative; border-radius: var(--card-radius); padding: 24px; min-height: 230px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
 .scale .num { position: absolute; top: 18px; left: 20px; font: 600 13px/1 var(--sans); letter-spacing: 0.08em; opacity: 0.7; }
 .scale h3 { font: 600 34px/1 var(--serif); margin-bottom: 8px; }
 .scale p { margin: 0; font-size: 15px; line-height: 1.45; }
@@ -274,7 +276,7 @@ footer .top-link { color: var(--ink-soft); font-weight: 500; text-decoration: no
 pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var(--surface); padding: 16px 18px; border-radius: 14px; }
 
 /* ---------- A shared business (src/p.html) ---------- */
-.biz .score-card { background: var(--plum); color: #FBF6EA; border-radius: 20px; padding: 18px 20px; margin: 0 0 16px; }
+.biz .score-card { background: var(--plum); color: #FBF6EA; border-radius: var(--card-radius); padding: 24px; margin: 0 0 16px; }
 .biz .score-card p { margin: 0; color: inherit; }
 .biz .score-label { font: 700 12px/1.4 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: rgba(251, 246, 234, 0.78) !important; }
 .biz .score-row { display: flex; align-items: center; gap: 16px; margin: 8px 0 !important; }
@@ -284,7 +286,7 @@ pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var
 .biz .score-word { font: 600 22px/1.2 var(--serif); color: var(--gold) !important; margin-top: 4px !important; }
 .biz .score-meta { font-size: 15px; color: rgba(251, 246, 234, 0.78) !important; }
 .biz .ties { display: inline-flex; gap: 3px; align-items: center; }
-.biz .biz-card { background: var(--surface); border-radius: 18px; padding: 14px 18px; box-shadow: var(--lift); margin: 0 0 16px; }
+.biz .biz-card { background: var(--surface); border-radius: var(--card-radius); padding: 16px; box-shadow: var(--lift); margin: 0 0 16px; }
 .biz .card-label { font: 700 12px/1.4 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 4px; }
 .biz .details { list-style: none; padding: 0; margin: 0; }
 .biz .details li { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
@@ -299,7 +301,7 @@ pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var
 .biz .pickers select { height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; font: 16px var(--sans); color: var(--ink); text-transform: none; letter-spacing: 0; }
 .biz .review-count { color: var(--ink-soft); font-size: 15px; margin: 8px 0; }
 .biz .review-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-.biz .review-list li { background: var(--surface); border-radius: 16px; padding: 14px 16px; box-shadow: var(--lift); }
+.biz .review-list li { background: var(--surface); border-radius: var(--card-radius); padding: 16px; box-shadow: var(--lift); }
 .biz .review-top { display: flex; justify-content: space-between; gap: 10px; }
 .biz .review-top span { color: var(--ink-soft); font-size: 14px; }
 .biz .review-rate { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 4px 0; }
@@ -311,3 +313,19 @@ pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var
 
 /* Bar widths on the home page's example card (classes, so the page needs no inline styles under its security policy). */
 .w92 { --w: 92%; } .w78 { --w: 78%; } .w84 { --w: 84%; }
+
+/* Apple-style corners (Nov 25), where the browser can draw them (CSS corner-shape; others keep round
+   corners). A squircle corner looks tighter than a round one of the same size, so it gets a larger radius:
+   an approximation of Apple's continuous corner, not an exact match. */
+@supports (corner-shape: squircle) {
+  .box, .shared .places li, .scale li, .biz .score-card, .biz .biz-card, .biz .review-list li, pre.license,
+  .float-card, .ps-score, .ps-details, .phone-screen, .biz .pickers select {
+    corner-shape: squircle;
+  }
+  :root { --card-radius: 42px; }
+  pre.license { border-radius: 21px; }
+  .float-card, .ps-score { border-radius: 27px; }
+  .ps-details { border-radius: 24px; }
+  .phone-screen { border-radius: 66px; }
+  .biz .pickers select { border-radius: 18px; }
+}
