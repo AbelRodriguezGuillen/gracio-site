@@ -308,6 +308,16 @@ pre.license { white-space: pre-wrap; font: 13px/1.5 var(--sans); background: var
 .biz .review-list p { margin: 6px 0 0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
 .biz .review-list mark { background: var(--teal-soft); color: var(--ink); border-radius: 4px; padding: 0 2px; }
 .biz .review-list .helpful { color: var(--ink-soft); font-size: 14px; }
+/* Photos (Nov 26): a strip that scrolls sideways under the score, and small photos under a review. */
+.biz .photo-strip { display: flex; gap: 8px; overflow-x: auto; margin: 8px -4px 0; padding: 0 4px 6px; scroll-snap-type: x proximity; }
+.biz .photo-strip a, .biz .review-photos a { flex: none; display: block; line-height: 0; scroll-snap-align: start; }
+.biz .photo-strip img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; background: var(--line); }
+.biz .review-photos { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; }
+.biz .review-photos img { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; background: var(--line); }
+.biz .photo-strip a:focus-visible, .biz .review-photos a:focus-visible { outline-offset: 2px; }
+@supports (corner-shape: squircle) {
+  .biz .photo-strip img, .biz .review-photos img { corner-shape: squircle; border-radius: 18px; }
+}
 .biz .more { display: block; margin: 14px auto 0; min-height: 44px; background: none; border: none; color: var(--teal); font: 600 16px var(--sans); cursor: pointer; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

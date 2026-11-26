@@ -2,6 +2,8 @@
 // so it never reaches this website's server. Everything shown is already public in the app: the business,
 // its stored scores and its published reviews (approved entries only), read with the public key the app,
 // the admin page and c.html use. Who wrote a review shows as the name they chose in the app.
+// Photos (Nov 26): approved photos of published reviews, shown through short-lived signed links like the app; the
+// strip and the reviews use each photo's small copy (".thumb.jpg"), and a photo opens full size.
 (function () {
   var URL_ = 'https://afjoucvqxxtwfpbpweph.supabase.co';
   var KEY = 'sb_publishable_77n-uOCZ_p2ZI6JreiJylQ_1Mk4igKn';
@@ -50,7 +52,7 @@
     get('places?id=eq.' + id + '&select=id,name,category,kind,town,address,lat,lng'),
     get('place_scores?' + q + '&select=time_window,score,review_count'),
     get('place_detail_scores?' + q + '&select=time_window,detail,score,rating_count'),
-    get('reviews?' + q + '&select=id,author:profiles!reviews_author_id_fkey(display_name),review_entries(created_at,service,comment)')
+    get('reviews?' + q + '&select=id,author:profiles!reviews_author_id_fkey(display_name),review_entries(created_at,service,comment,review_photos(id,path,tag,position,status))')
   ]).then(function (res) {
     var p = res[0][0];
     if (!p) return gone();
@@ -93,13 +95,63 @@
       var e = es[es.length - 1];
       if (!e) return null;
       var author = Array.isArray(r.author) ? r.author[0] : r.author;
-      return { id: r.id, name: (author && author.display_name) || 'Gracio member', service: e.service, comment: e.comment || '', date: e.created_at, helpful: 0 };
+      // Its photos, from every published version of the review, newest version first.
+      var photos = [];
+      es.slice().reverse().forEach(function (x) {
+        (x.review_photos || []).filter(function (ph) { return ph.status === 'approved'; })
+          .sort(function (a, b) { return a.position - b.position; })
+          .forEach(function (ph) { photos.push({ path: ph.path, tag: ph.tag, date: x.created_at }); });
+      });
+      return { id: r.id, name: (author && author.display_name) || 'Gracio member', service: e.service, comment: e.comment || '', date: e.created_at, helpful: 0, photos: photos };
     }).filter(Boolean);
-    setUpReviews(all);
+    var redraw = setUpReviews(all);
     $('body').hidden = false;
+    showPhotos(all, redraw);
   }).catch(function () {
     $('meta').textContent = 'Couldn’t open this business. Check your connection and reload the page.';
   });
+
+  // Signed links for these stored photos (Supabase answers with a link per path it lets us see).
+  function signLinks(paths) {
+    if (!paths.length) return Promise.resolve({});
+    return fetch(URL_ + '/storage/v1/object/sign/review-photos', {
+      method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresIn: 3600, paths: paths })
+    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+      var out = {};
+      (rows || []).forEach(function (x) { if (x && x.path && x.signedURL) out[x.path] = URL_ + '/storage/v1' + x.signedURL; });
+      return out;
+    }).catch(function () { return {}; });
+  }
+  var TAGS = { food: 'Food', drinks: 'Drinks', menu: 'Menu', products: 'Products', prices: 'Prices', result: 'Result', rooms: 'Rooms', equipment: 'Equipment', inside: 'Inside', outside: 'Outside', other: 'Photo' };
+  var small = function (path) { return path.replace(/\.jpg$/, '.thumb.jpg'); };
+  // One photo: its small copy (or the full photo for photos from before small copies), opening full size.
+  var photoLink = function (ph, size) {
+    var a = document.createElement('a');
+    a.href = ph.full; a.target = '_blank'; a.rel = 'noopener';
+    var img = document.createElement('img');
+    img.src = ph.small || ph.full; img.alt = (TAGS[ph.tag] || 'Photo') + ' photo'; img.loading = 'lazy'; img.width = size; img.height = size;
+    a.appendChild(img);
+    return a;
+  };
+  function showPhotos(all, redraw) {
+    var photos = [];
+    all.forEach(function (r) { r.photos.forEach(function (ph) { photos.push(ph); }); });
+    if (!photos.length) return;
+    var paths = photos.map(function (ph) { return ph.path; });
+    // Small copies in a request of their own: photos from before Nov 26 have none, and that mustn't cost the full ones.
+    Promise.all([signLinks(paths), signLinks(paths.map(small))]).then(function (res) {
+      photos.forEach(function (ph) { ph.full = res[0][ph.path]; ph.small = res[1][small(ph.path)]; });
+      var ok = photos.filter(function (ph) { return ph.full; }).sort(function (a, b) { return Date.parse(b.date) - Date.parse(a.date); });
+      if (!ok.length) return;
+      var strip = $('photoStrip');
+      strip.textContent = '';
+      ok.forEach(function (ph) { strip.appendChild(photoLink(ph, 120)); });
+      $('photosTitle').textContent = 'Photos · ' + ok.length;
+      $('photosCard').hidden = false;
+      redraw();
+    });
+  }
 
   function setUpReviews(all) {
     var shown = FIRST, votesLoaded = false;
@@ -146,6 +198,12 @@
         rate.appendChild(tie); rate.appendChild(w);
         li.appendChild(top); li.appendChild(rate);
         if (r.comment) { var c = document.createElement('p'); highlight(c, r.comment, m.text); li.appendChild(c); }
+        var shownPhotos = r.photos.filter(function (ph) { return ph.full; });
+        if (shownPhotos.length) {
+          var row = document.createElement('div'); row.className = 'review-photos';
+          shownPhotos.forEach(function (ph) { row.appendChild(photoLink(ph, 72)); });
+          li.appendChild(row);
+        }
         if (r.helpful > 0) { var h = document.createElement('p'); h.className = 'helpful'; h.textContent = r.helpful + (r.helpful === 1 ? ' person' : ' people') + ' found this helpful'; li.appendChild(h); }
         ul.appendChild(li);
       });
@@ -174,5 +232,6 @@
     });
     $('more').addEventListener('click', function () { shown += PAGE; draw(); });
     draw();
+    return draw;
   }
 })();

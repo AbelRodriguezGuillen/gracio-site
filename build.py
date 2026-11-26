@@ -18,8 +18,9 @@ def js_version(name):
 
 # Every page's security policy (Nov 25): its own files only, plus Gracio's Supabase project for the pages that
 # load a shared business or collection. No inline scripts or styles anywhere, so injected markup can't run.
+# Images may also come from that project (Nov 26: review photos on a shared business, through signed links).
 SUPABASE = 'https://afjoucvqxxtwfpbpweph.supabase.co'
-CSP = (f"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; "
+CSP = (f"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: {SUPABASE}; "
        f"connect-src {SUPABASE}; base-uri 'none'; form-action 'none'")
 
 ROOT = pathlib.Path(__file__).parent
