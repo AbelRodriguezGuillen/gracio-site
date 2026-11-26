@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-toXX+tvMwUQntytg+uNJCNKV9aCNOge4yoe/bVk6kjw='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-rSImRg6db4ju8DjGek5acrVzAFjoeNSjlxLWqYn+zeY='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -811,7 +811,7 @@
     card.querySelectorAll('button').forEach((b) => b.disabled = true);
     try {
       const removed = await rpc('admin_decide_review', args);
-      if (removed && removed.length) await sb.storage.from('review-photos').remove(removed).catch(() => {}); // leftovers are cleaned up in Photos otherwise
+      if (removed && removed.length) await sb.storage.from('review-photos').remove(withSmallCopies(removed)).catch(() => {}); // leftovers are cleaned up in Photos otherwise
       toast(act === 'decline' ? 'Declined' : 'Approved and posted');
       card.remove();
       if (!$('reviewsList').querySelector('.card')) loadReviews();
@@ -1726,9 +1726,11 @@
   }
 
   // ---------- deleting (admins) ----------
+  // A review photo's small copy (Nov 26) sits next to it as ".thumb.jpg": deleting a photo deletes both.
+  const withSmallCopies = (paths) => paths.flatMap((p) => (p.endsWith('.thumb.jpg') ? [p] : [p, p.replace(/\.jpg$/, '.thumb.jpg')]));
   async function removeFiles(paths) {
     if (!paths || !paths.length) return;
-    const { error } = await sb.storage.from('review-photos').remove(paths).catch((e) => ({ error: e }));
+    const { error } = await sb.storage.from('review-photos').remove(withSmallCopies(paths)).catch((e) => ({ error: e }));
     if (error) toast('Deleted. Some files are left over; clean them up under Photos.');
   }
 
@@ -2462,7 +2464,7 @@
       where: 'Pending reviews', item: '.card[data-id]', id: (el) => el.dataset.id, reload: () => loadReviews(),
       actions: [
         { label: 'Approve', primary: true, preview: async (ids) => listPreview($('reviewsList'), ids, titleOf) + '\n\nEach one is posted (photos included) and its writer gets a message.',
-          run: async (id) => { const removed = await rpc('admin_decide_review', { p_entry_id: id, p_decision: 'approve', p_use_original: false, p_remove_photos: [] }); if (removed?.length) await sb.storage.from('review-photos').remove(removed).catch(() => {}); } },
+          run: async (id) => { const removed = await rpc('admin_decide_review', { p_entry_id: id, p_decision: 'approve', p_use_original: false, p_remove_photos: [] }); if (removed?.length) await sb.storage.from('review-photos').remove(withSmallCopies(removed)).catch(() => {}); } },
         { label: 'Decline', danger: true, ask: 'Optional reason, shown to every writer (e.g. "Please describe your visit"):',
           preview: async (ids) => listPreview($('reviewsList'), ids, titleOf) + '\n\nNone of them are posted; each writer gets a message.',
           run: async (id, reason) => { await rpc('admin_decide_review', { p_entry_id: id, p_decision: 'decline', p_use_original: false, p_remove_photos: [], p_reason: reason }); } },
