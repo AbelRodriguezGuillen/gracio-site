@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-vi84ycWwgEOEG7KimXNFYbDdL8OmOVOVsL+7EjC+fq0='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5VbybYtj4BlKzYOWkeDVtxsTLATrI+3uiit8gL0UB6U='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -2511,14 +2511,16 @@
     body.innerHTML = '<div class="empty">Loading…</div>';
     const days = Number($('metricDays').value);
     try {
-      const [m, daily, acct] = await Promise.all([
+      const [m, daily, acct, load] = await Promise.all([
         rpc('admin_metrics', { p_days: days }),
         rpc('admin_daily_activity', { p_days: days }),
         isAdmin ? rpc('admin_account_stats').catch(() => null) : null,
+        rpc('admin_server_load', { p_days: 7 }).catch((e) => ({ error: e.message })),
       ]);
       const repeatRate = m.reviewers_all_time ? Math.round(100 * m.repeat_reviewers / m.reviewers_all_time) : null;
       const tile = (v, k, s = '') => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
       body.innerHTML = `
+        ${serverLoadCard(load, acct, tile)}
         <div class="tiles">
           ${tile(fmt(m.new_users), 'New users', fmt(m.total_users) + ' total')}
           ${acct ? tile(fmt(acct.active_7d), 'Active accounts', 'signed in, last 7 days') + tile(fmt(acct.active_30d), 'Active accounts', 'signed in, last 30 days') : ''}
@@ -2543,6 +2545,60 @@
         <div class="card"><h3>Reviews by category</h3>${listRows(m.by_category, 'category')}</div>
         <div class="card"><h3>Top towns</h3>${listRows(m.by_town, 'town')}</div>`;
     } catch (e) { body.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
+  }
+
+  // Server load (Nov 26): how busy the database is, from a reading every 5 minutes (admin_server_load).
+  function serverLoadCard(load, acct, tile) {
+    if (load?.error) return `<div class="card" id="serverLoad"><h3>Server load</h3><div class="error">${esc(load.error)}</div></div>`;
+    const time = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const when = (t) => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const pct = (v) => (v === null || v === undefined ? '—' : Math.round(Number(v)) + '%');
+    const cores = Number(load.cores);
+    const stale = !load.last_sample_at || Date.now() - new Date(load.last_sample_at) > 15 * 60 * 1000;
+    const nowPct = load.now ? Number(load.now.pct) : null;
+    const high = nowPct !== null && nowPct >= load.alert_pct;
+    return `<div class="card chart" id="serverLoad">
+      <h3>Server load ${load.alert_open ? '<span class="pill warn">High</span>' : ''}</h3>
+      ${stale ? `<div class="meta" style="color:var(--bad);font-weight:600;margin-bottom:8px">${load.last_sample_at
+        ? 'No reading since ' + esc(when(load.last_sample_at)) + '. The 5-minute job may have stopped (see Security → Scheduler running).'
+        : 'No readings yet. The first one comes within 10 minutes of the monitor being turned on.'}</div>` : ''}
+      <div class="tiles">
+        ${tile(pct(nowPct), 'Busy now', load.now ? esc(time(load.now.at)) + ' · ' + fmt(load.now.active_conns) + ' running · ' + fmt(load.now.transactions_per_min) + ' transactions/min' : 'no reading yet')}
+        ${tile(pct(load.today_peak?.pct), 'Today\'s peak', load.today_peak ? esc(time(load.today_peak.at)) + ' (5-minute average)' : 'no reading today')}
+        ${acct ? tile(fmt(acct.active_1d), 'Active today', 'signed in, last 24 hours') : ''}
+      </div>
+      ${loadChart(load.hours, load.alert_pct)}
+      <div class="legend"><span><i style="background:var(--plum)"></i>Busy, hourly average</span><span><i style="background:var(--bad)"></i>Alert line (${load.alert_pct}%)</span></div>
+      <p class="meta" style="margin-top:8px">${high ? '<b>Above the alert line now.</b> ' : ''}Busy % is the share of the database's ${cores} cores spent running queries (waiting for the disk counts too, so it can read a little higher than Supabase → Reports → CPU). It doesn't include the API server or photo storage.
+        An email goes to the staff address when the last ${load.window_minutes} minutes average ${load.alert_pct}% or more (at most one every ${load.quiet_hours} hours), and once more when it's back under 60%.
+        ${load.last_alert_at ? 'Last alert: ' + esc(when(load.last_alert_at)) + '.' : 'No alerts yet.'}
+        After a compute upgrade, change <b>cores</b> in Supabase → Table Editor → server_load_settings.</p>
+    </div>`;
+  }
+
+  function loadChart(hours, line) {
+    if (!hours.length) return '<div class="meta">The chart fills in as readings come in.</div>';
+    const W = 600, H = 160, pad = 28;
+    const end = Date.now(), start = end - 7 * 24 * 3600 * 1000;
+    const max = Math.max(100, line, ...hours.map((h) => Number(h.avg_pct)));
+    const x = (t) => pad + ((t - start) / (end - start)) * (W - pad);
+    const y = (v) => H - pad - (v / max) * (H - pad * 1.5);
+    const bw = Math.max(1, (W - pad) / (7 * 24) - 0.6);
+    const bars = hours.map((h) => {
+      const t = new Date(h.hour).getTime(), v = Number(h.avg_pct);
+      return `<rect x="${x(t).toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(2)}" height="${(H - pad - y(v)).toFixed(1)}" fill="var(--plum)"><title>${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))}: ${Math.round(v)}% average, ${Math.round(Number(h.peak_pct))}% peak</title></rect>`;
+    }).join('');
+    const day = (t) => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Server load, last 7 days">
+      <line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="var(--line)"/>
+      <line x1="${pad}" y1="${y(line)}" x2="${W}" y2="${y(line)}" stroke="var(--bad)" stroke-dasharray="4 3"/>
+      <text x="0" y="${y(max) + 4}" font-size="11" fill="var(--muted)">${max}%</text>
+      <text x="0" y="${y(line) + 4}" font-size="11" fill="var(--muted)">${line}%</text>
+      <text x="0" y="${H - pad + 4}" font-size="11" fill="var(--muted)">0</text>
+      ${bars}
+      <text x="${pad}" y="${H - 6}" font-size="11" fill="var(--muted)">${day(start)}</text>
+      <text x="${W}" y="${H - 6}" font-size="11" fill="var(--muted)" text-anchor="end">Now</text>
+    </svg>`;
   }
 
   function listRows(rows, key) {
