@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-rSImRg6db4ju8DjGek5acrVzAFjoeNSjlxLWqYn+zeY='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-vi84ycWwgEOEG7KimXNFYbDdL8OmOVOVsL+7EjC+fq0='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -1124,7 +1124,7 @@
         <div class="row">
           <span class="title">${esc(r.place_name)}</span>
           ${r.town ? `<span class="meta">${esc(r.town)}</span>` : ''}
-          ${r.entry_id ? `<span class="pill">For a review · visit ${esc(day(r.entry_visit_date))}</span>` : '<span class="pill">Check-in</span>'}
+          ${r.entry_id ? (r.entry_visit_date ? `<span class="pill">For a review · visit ${esc(day(r.entry_visit_date))}</span>` : '<span class="pill">For a review · no visit date</span>') : '<span class="pill">Check-in</span>'}
           ${r.same_file_elsewhere ? `<span class="pill bad">Same photo sent ${esc(String(r.same_file_elsewhere))}× before</span>` : ''}
           ${r.declined_recently ? `<span class="pill warn">${esc(String(r.declined_recently))} declined in 90 days</span>` : ''}
         </div>
@@ -1132,6 +1132,7 @@
         <div class="receipt"><button class="btn" data-show-receipt>Show receipt</button></div>
         <label>Date on the receipt</label>
         <div class="dt"><input type="date" data-f="date" max="${todayIso()}" value="${esc(r.entry_id ? String(r.entry_visit_date || '').slice(0, 10) : '')}"></div>
+        ${r.entry_id && !r.entry_visit_date ? '<div class="meta">This review has no visit date. The date you enter (the one on the receipt) is saved on it as the visit day.</div>' : ''}
         <label>Time on the receipt (only if printed)</label>
         <div class="dt"><input type="time" data-f="time"></div>
         <label>Kind of receipt</label>
