@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-5VbybYtj4BlKzYOWkeDVtxsTLATrI+3uiit8gL0UB6U='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-NheSkYO0yyKw3JHtnby6lGgVfXY3GjncGYsqYDMbpzI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -2560,17 +2560,17 @@
     return `<div class="card chart" id="serverLoad">
       <h3>Server load ${load.alert_open ? '<span class="pill warn">High</span>' : ''}</h3>
       ${stale ? `<div class="meta" style="color:var(--bad);font-weight:600;margin-bottom:8px">${load.last_sample_at
-        ? 'No reading since ' + esc(when(load.last_sample_at)) + '. The 5-minute job may have stopped (see Security → Scheduler running).'
+        ? 'No reading since ' + esc(when(load.last_sample_at)) + '. The 5-minute job may have stopped (see Security → Scheduler running). Alerts are paused until readings resume.'
         : 'No readings yet. The first one comes within 10 minutes of the monitor being turned on.'}</div>` : ''}
       <div class="tiles">
-        ${tile(pct(nowPct), 'Busy now', load.now ? esc(time(load.now.at)) + ' · ' + fmt(load.now.active_conns) + ' running · ' + fmt(load.now.transactions_per_min) + ' transactions/min' : 'no reading yet')}
-        ${tile(pct(load.today_peak?.pct), 'Today\'s peak', load.today_peak ? esc(time(load.today_peak.at)) + ' (5-minute average)' : 'no reading today')}
+        ${tile(pct(nowPct), 'Database busy now (estimate)', load.now ? esc(time(load.now.at)) + ' · ' + fmt(load.now.active_conns) + ' running · ' + fmt(load.now.transactions_per_min) + ' transactions/min' : 'no reading yet')}
+        ${tile(pct(load.today_peak?.pct), 'Today\'s peak (estimate)', load.today_peak ? esc(time(load.today_peak.at)) + ' (5-minute average)' : 'no reading today')}
         ${acct ? tile(fmt(acct.active_1d), 'Active today', 'signed in, last 24 hours') : ''}
       </div>
       ${loadChart(load.hours, load.alert_pct)}
-      <div class="legend"><span><i style="background:var(--plum)"></i>Busy, hourly average</span><span><i style="background:var(--bad)"></i>Alert line (${load.alert_pct}%)</span></div>
-      <p class="meta" style="margin-top:8px">${high ? '<b>Above the alert line now.</b> ' : ''}Busy % is the share of the database's ${cores} cores spent running queries (waiting for the disk counts too, so it can read a little higher than Supabase → Reports → CPU). It doesn't include the API server or photo storage.
-        An email goes to the staff address when the last ${load.window_minutes} minutes average ${load.alert_pct}% or more (at most one every ${load.quiet_hours} hours), and once more when it's back under 60%.
+      <div class="legend"><span><i style="background:var(--plum)"></i>Estimated busy %, hourly average</span><span><i style="background:var(--bad)"></i>Alert line (${load.alert_pct}%)</span></div>
+      <p class="meta" style="margin-top:8px"><b>An estimate of database activity, not actual CPU use.</b> ${high ? '<b>Above the alert line now.</b> ' : ''}Busy % is the time the database spent running queries ÷ its ${cores} cores. Waiting for the disk or a lock counts too, so it can differ from actual CPU: see Supabase → Reports → Database for that. It doesn't include the API server or photo storage.
+        An email goes to the staff address when the last ${load.window_minutes} minutes average ${load.alert_pct}% or more (at most one every ${load.quiet_hours} hours), and once more when it's back under 60%. Only complete, up-to-date readings count: a missed run or a statistics reset pauses alerts until the next full ${load.window_minutes} minutes.
         ${load.last_alert_at ? 'Last alert: ' + esc(when(load.last_alert_at)) + '.' : 'No alerts yet.'}
         After a compute upgrade, change <b>cores</b> in Supabase → Table Editor → server_load_settings.</p>
     </div>`;
@@ -2589,7 +2589,7 @@
       return `<rect x="${x(t).toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(2)}" height="${(H - pad - y(v)).toFixed(1)}" fill="var(--plum)"><title>${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))}: ${Math.round(v)}% average, ${Math.round(Number(h.peak_pct))}% peak</title></rect>`;
     }).join('');
     const day = (t) => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Server load, last 7 days">
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Estimated database busy %, last 7 days">
       <line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="var(--line)"/>
       <line x1="${pad}" y1="${y(line)}" x2="${W}" y2="${y(line)}" stroke="var(--bad)" stroke-dasharray="4 3"/>
       <text x="0" y="${y(max) + 4}" font-size="11" fill="var(--muted)">${max}%</text>
