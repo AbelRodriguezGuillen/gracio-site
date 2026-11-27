@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Only this page's own script, the sign-in library saved next to it, and Gracio's Supabase project.
      After changing the script below, update the sha256 here: python3 tools/admin-csp-hash.py admin/index.html -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-NheSkYO0yyKw3JHtnby6lGgVfXY3GjncGYsqYDMbpzI='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-aKTreYZgnuGSrzpHed8feahlMNzegMfwwW0GelEiH+w='; style-src 'unsafe-inline'; img-src 'self' data: https://afjoucvqxxtwfpbpweph.supabase.co; connect-src https://afjoucvqxxtwfpbpweph.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'">
 <script src="vendor/supabase-js-2.118.0.js"></script>
 <style>
   :root {
@@ -976,7 +976,8 @@
   }
 
   // ---------- emails ----------
-  const EMAIL_STATUS = { queued: 'Waiting', sending: 'Sending', sent: 'Sent', skipped: 'Skipped', failed: 'Failed' };
+  // 'uncertain' (Nov 27): Resend never confirmed it, so it wasn't sent again (it may or may not have arrived).
+  const EMAIL_STATUS = { queued: 'Waiting', sending: 'Sending', sent: 'Sent', skipped: 'Skipped', failed: 'Failed', uncertain: 'Not confirmed' };
   async function loadEmails() {
     const list = $('emailsList');
     const health = $('deliveryHealth');
@@ -988,14 +989,15 @@
         <div class="card">
           <div class="row">
             <span class="title">${esc(title)}</span>
-            <span class="pill ${r.status === 'failed' ? 'bad' : r.status === 'skipped' ? 'warn' : ''}">${esc(EMAIL_STATUS[r.status] || r.status)}</span>
+            <span class="pill ${r.status === 'failed' ? 'bad' : r.status === 'skipped' || r.status === 'uncertain' ? 'warn' : ''}">${esc(EMAIL_STATUS[r.status] || r.status)}</span>
             ${r.category === 'safety' || r.category === 'account' ? '<span class="pill">Account</span>' : ''}
           </div>
           <div class="meta">${esc(r.person || 'Deleted account')} · ${when(r.created_at)}${r.sent_at ? ' · sent ' + when(r.sent_at) : ''}${r.attempts > 1 ? ' · ' + r.attempts + ' tries' : ''}${r.devices ? ' · ' + r.devices + (r.devices === 1 ? ' phone' : ' phones') : ''}</div>
           ${r.last_error ? `<div class="meta">${esc(r.last_error)}</div>` : ''}
         </div>`;
-    // Failed ones first, so they can't be missed; then newest first as the database sent them.
-    const failedFirst = (rows) => [...rows.filter((r) => r.status === 'failed'), ...rows.filter((r) => r.status !== 'failed')];
+    // Failed and unconfirmed ones first, so they can't be missed; then newest first as the database sent them.
+    const flagged = (r) => r.status === 'failed' || r.status === 'uncertain';
+    const failedFirst = (rows) => [...rows.filter(flagged), ...rows.filter((r) => !flagged(r))];
     // Summary and warnings (needs the Nov 15 database update; without it the lists below still work).
     try {
       const h = await rpc('admin_delivery_health');
@@ -1776,7 +1778,7 @@
       list.innerHTML = '<div class="empty">Loading…</div>';
       rpc('admin_account_stats').then((st) => {
         const tile = (v, k, s = '') => `<div class="tile"><div class="v">${fmt(v)}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-        $('userStats').innerHTML = tile(st.total, 'Accounts') + (st.active_1d !== undefined ? tile(st.active_1d, 'Active', 'today') : '') + tile(st.active_7d, 'Active', 'last 7 days') + tile(st.active_30d, 'Active', 'last 30 days')
+        $('userStats').innerHTML = tile(st.total, 'Accounts') + (st.active_1d !== undefined ? tile(st.active_1d, 'Signed in', 'last 24 hours') : '') + tile(st.active_7d, 'Signed in', 'last 7 days') + tile(st.active_30d, 'Signed in', 'last 30 days')
           + tile(st.new_7d, 'New', 'last 7 days') + tile(st.new_30d, 'New', 'last 30 days') + tile(st.with_reviews, 'Have posted a review') + tile(st.suspended, 'Suspended');
       }).catch((e) => { $('userStats').innerHTML = `<div class="card error">${esc(e.message)}</div>`; });
     }
@@ -2511,19 +2513,21 @@
     body.innerHTML = '<div class="empty">Loading…</div>';
     const days = Number($('metricDays').value);
     try {
-      const [m, daily, acct, load] = await Promise.all([
+      const [m, daily, acct, load, active] = await Promise.all([
         rpc('admin_metrics', { p_days: days }),
         rpc('admin_daily_activity', { p_days: days }),
         isAdmin ? rpc('admin_account_stats').catch(() => null) : null,
         rpc('admin_server_load', { p_days: 7 }).catch((e) => ({ error: e.message })),
+        rpc('admin_active_accounts', { p_days: days }).catch((e) => ({ error: e.message })),
       ]);
       const repeatRate = m.reviewers_all_time ? Math.round(100 * m.repeat_reviewers / m.reviewers_all_time) : null;
       const tile = (v, k, s = '') => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
       body.innerHTML = `
+        ${activeAccountsCard(active, tile)}
         ${serverLoadCard(load, acct, tile)}
         <div class="tiles">
           ${tile(fmt(m.new_users), 'New users', fmt(m.total_users) + ' total')}
-          ${acct ? tile(fmt(acct.active_7d), 'Active accounts', 'signed in, last 7 days') + tile(fmt(acct.active_30d), 'Active accounts', 'signed in, last 30 days') : ''}
+          ${acct ? tile(fmt(acct.active_7d), 'Signed in (7 days)', 'accounts') + tile(fmt(acct.active_30d), 'Signed in (30 days)', 'accounts') : ''}
           ${tile(fmt(m.new_reviews), 'New reviews', 'published · ' + fmt(m.total_reviews) + ' published total')}
           ${tile(fmt(m.new_updates), 'Review updates')}
           ${tile(fmt(m.active_reviewers), 'Active reviewers')}
@@ -2547,6 +2551,46 @@
     } catch (e) { body.innerHTML = `<div class="card error">${esc(e.message)}</div>`; }
   }
 
+  // Active accounts (Nov 27): registered accounts that opened the app, per New York day (admin_active_accounts).
+  // Staff and test accounts are left out of the numbers and named in the note. Guests aren't counted.
+  function activeAccountsCard(a, tile) {
+    if (!a || a.error || !Array.isArray(a.days)) {
+      return `<div class="card" id="activeAccounts"><h3>Active accounts</h3><div class="meta">${esc(a?.error || 'Not available yet.')}</div></div>`;
+    }
+    const excluded = a.excluded_30d || 0;
+    return `<div class="card chart" id="activeAccounts">
+      <h3>Active accounts</h3>
+      <div class="tiles">
+        ${tile(fmt(a.active_1d), 'Used the app today')}
+        ${tile(fmt(a.active_7d), 'Used it, last 7 days')}
+        ${tile(fmt(a.active_30d), 'Used it, last 30 days')}
+      </div>
+      ${activeChart(a.days)}
+      <div class="legend"><span><i style="background:var(--plum)"></i>Accounts that used the app, per day</span></div>
+      <p class="meta" style="margin-top:8px">Registered accounts that opened the app at least once (guests aren't counted). Days are New York calendar days; today is so far.${excluded ? ` Not counting ${fmt(excluded)} staff and test account${excluded === 1 ? '' : 's'}.` : ''}</p>
+    </div>`;
+  }
+
+  function activeChart(days) {
+    if (!days.length) return '';
+    const W = 600, H = 160, pad = 24;
+    const n = days.length;
+    const max = Math.max(1, ...days.map((d) => d.accounts));
+    const step = (W - pad) / n;
+    const bw = Math.max(1, step * 0.7);
+    const y = (v) => H - pad - (v / max) * (H - pad * 1.5);
+    const label = (d) => new Date(d.day + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const bars = days.map((d, i) => `<rect x="${pad + i * step}" y="${y(d.accounts)}" width="${bw}" height="${H - pad - y(d.accounts)}" fill="var(--plum)" rx="1"${i === n - 1 ? ' opacity="0.5"' : ''}><title>${esc(d.day)}: ${d.accounts} account${d.accounts === 1 ? '' : 's'}${i === n - 1 ? ' so far' : ''}</title></rect>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Active accounts per day">
+      <line x1="${pad}" y1="${H - pad}" x2="${W}" y2="${H - pad}" stroke="var(--line)"/>
+      <text x="0" y="${y(max) + 4}" font-size="11" fill="var(--muted)">${max}</text>
+      <text x="0" y="${H - pad + 4}" font-size="11" fill="var(--muted)">0</text>
+      ${bars}
+      <text x="${pad}" y="${H - 6}" font-size="11" fill="var(--muted)">${label(days[0])}</text>
+      <text x="${W}" y="${H - 6}" font-size="11" fill="var(--muted)" text-anchor="end">${label(days[n - 1])} (so far)</text>
+    </svg>`;
+  }
+
   // Server load (Nov 26): how busy the database is, from a reading every 5 minutes (admin_server_load).
   function serverLoadCard(load, acct, tile) {
     if (load?.error) return `<div class="card" id="serverLoad"><h3>Server load</h3><div class="error">${esc(load.error)}</div></div>`;
@@ -2565,7 +2609,7 @@
       <div class="tiles">
         ${tile(pct(nowPct), 'Database busy now (estimate)', load.now ? esc(time(load.now.at)) + ' · ' + fmt(load.now.active_conns) + ' running · ' + fmt(load.now.transactions_per_min) + ' transactions/min' : 'no reading yet')}
         ${tile(pct(load.today_peak?.pct), 'Today\'s peak (estimate)', load.today_peak ? esc(time(load.today_peak.at)) + ' (5-minute average)' : 'no reading today')}
-        ${acct ? tile(fmt(acct.active_1d), 'Active today', 'signed in, last 24 hours') : ''}
+        ${acct ? tile(fmt(acct.active_1d), 'Signed in (24h)', 'accounts') : ''}
       </div>
       ${loadChart(load.hours, load.alert_pct)}
       <div class="legend"><span><i style="background:var(--plum)"></i>Estimated busy %, hourly average</span><span><i style="background:var(--bad)"></i>Alert line (${load.alert_pct}%)</span></div>
